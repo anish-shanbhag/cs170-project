@@ -1,4 +1,3 @@
-import json
 import math
 import os
 
@@ -8,11 +7,9 @@ import pulp as pl
 from gurobipy import GRB
 from termcolor import colored
 
-from starter import read_input, read_output, score, write_output
-
-SQ_INTERVALS = 500
-SQRT_INTERVALS = 300
-EXP_INTERVAL_SCALE = 10
+from constants import SQ_INTERVALS, SQRT_INTERVALS
+from helper import get_hyperparameters, is_new_best
+from starter import read_input, score, write_output
 
 
 def log(*args):
@@ -45,11 +42,7 @@ def add_fn_approximation(
 
 
 def solve(name: str):
-    with open("scores.json") as f:
-        scores = json.load(f)
-        k_max = math.ceil(2 * np.log(scores[name] / 100))
-        norm_sum_max = (np.log(scores[name]) / 70) ** 2 + 0.01
-        exp_intervals = math.ceil(EXP_INTERVAL_SCALE * 70 * math.sqrt(norm_sum_max))
+    k_max, norm_sum_max, exp_intervals, best_score = get_hyperparameters(name)
 
     G: nx.Graph = read_input(f"inputs/{name}.in")
     log("SOLVING:", name)
@@ -57,7 +50,9 @@ def solve(name: str):
     log("NORM_SUM_MAX:", norm_sum_max)
     log("EDGE COUNT:", G.number_of_edges())
     size = len(G.nodes)
+
     model = pl.LpProblem("CS 170 Solver", pl.LpMinimize)
+    solver = pl.GUROBI(Threads=8, warmStart=True)
 
     def sol_callback(model, where):
         get_var = lambda name: model.cbGetSolution(model.getVarByName(name))
@@ -93,14 +88,15 @@ def solve(name: str):
             #     "exp_input_ind =",
             #     [get_var(f"exp_input_ind_{i}") for i in range(1, exp_intervals + 2)],
             # )
+
             log("distribution =", get_var("distribution"))
-            old_score = float("inf")
-            if os.path.isfile(f"outputs/{name}.out"):
-                old_G = read_input(f"inputs/{name}.in")
-                old_G = read_output(old_G, f"outputs/{name}.out")
-                old_score = score(old_G)
-            if score(G) < old_score:
+            if is_new_best(name, G):
                 write_output(G, f"outputs/{name}.out", True)
+                with open(f"solutions/{name}.mst", "w") as f:
+                    vars = model.getVars()
+                    sol = model.cbGetSolution(vars)
+                    for var, val in zip(vars, sol):
+                        f.write(f"{var.VarName} {val}\n")
             else:
                 log("SKIPPING OUTPUT UPDATE")
 
@@ -116,8 +112,8 @@ def solve(name: str):
                 d2 = x[j] - x[i]
                 model += d >= d1
                 model += d >= d2
-                model += d <= d1 + k_max * b
-                model += d <= d2 + k_max * (1 - b)
+                model += d <= d1 + 2 * k_max * b
+                model += d <= d2 + 2 * k_max * (1 - b)
 
                 # https://or.stackexchange.com/questions/1160/how-to-linearize-min-function-as-a-constraint
                 # https://math.stackexchange.com/questions/2446606/linear-programming-set-a-variable-the-max-between-two-another-variables
@@ -208,7 +204,8 @@ def solve(name: str):
         lambda x: np.e**x,
     )
 
-    objective = pl.lpSum(c) + t + distribution
+    objective = pl.LpVariable("objective", 0, None, pl.LpContinuous)
+    model += objective == pl.lpSum(c) + t + distribution
     model += objective
 
     vars = {}
@@ -224,9 +221,16 @@ def solve(name: str):
         vars[s] += 1
     print([v for v in vars.items() if v[1] > 5])
 
-    solver = pl.GUROBI(Threads=4)
+    solver.buildSolverModel(model)
+
+    if os.path.isfile(f"solutions/{name}.mst"):
+        vars = {v.name: v for v in model.variables()}
+        with open(f"solutions/{name}.mst", "r") as f:
+            for line in f:
+                s = line.split()
+                vars[s[0]].setInitialValue(float(s[1]))
+
     solver.actualSolve(model, sol_callback)
     log("FINISHED SOLVING:", name)
 
-
-solve("small5")
+solve("small251")
