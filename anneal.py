@@ -58,7 +58,7 @@ def anneal(name: str):
             log(f"SKIPPING OUTPUT UPDATE for {name}:", score(G))
 
 
-i = 14
+i = 3
 for i in list(range(260))[i * 18 : (i + 1) * 18]:
     anneal("small" + str(i + 1))
     anneal("medium" + str(i + 1))
