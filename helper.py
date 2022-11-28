@@ -24,12 +24,13 @@ def is_new_best(name: str, G: nx.Graph) -> bool:
         old_G = read_output(old_G, f"outputs/{name}.out")
         old_score = score(old_G)
         print("OLD SCORE:", old_score)
-        return score(G) < old_score
+        return score(G) <= old_score
     return True
 
 
 def write_vars_from_graph(name: str, G: nx.Graph):
     k_max, norm_sum_max, exp_intervals, best_score = get_hyperparameters(name)
+    k_max += 1
     size = len(G.nodes)
     x = [G.nodes[i]["team"] for i in range(size)]
     vars = {f"x_{i}": x[i] for i in range(size)}
@@ -58,10 +59,6 @@ def write_vars_from_graph(name: str, G: nx.Graph):
     for i in range(size):
         for j in range(i + 1, size):
             if G.has_edge(i, j):
-                b = vars[f"b_{i}_{j}"] = 1 if x[i] < x[j] else 0
-                d = vars[f"d_{i}_{j}"] = abs(x[i] - x[j])
-                d1 = x[i] - x[j]
-                d2 = x[j] - x[i]
                 vars[f"w_{i}_{j}"] = G.edges[i, j]["weight"] if x[i] == x[j] else 0
     for i in range(1, k_max + 1):
         vars[f"k_ind_{i}"] = 1 if k == i else 0
@@ -88,7 +85,6 @@ def write_vars_from_graph(name: str, G: nx.Graph):
         )
         norm_sum += vars[f"norm_term_{i}"]
 
-    print(f"norm_sum: {norm_sum}")
     add_fn_approximation(
         "norm_sum_ind",
         "norm_sum_sqrt",
@@ -127,6 +123,12 @@ def write_vars_from_graph(name: str, G: nx.Graph):
 
     with open(f"solutions/{name}.mst", "w") as f:
         f.write("\n".join([f"{name} {vars[name]}" for name in vars]) + "\n")
+
+
+def write_vars_from_output(name: str):
+    G = read_input(f"inputs/{name}.in")
+    G = read_output(G, f"outputs/{name}.out")
+    write_vars_from_graph(name, G)
 
 
 # name = "small43"

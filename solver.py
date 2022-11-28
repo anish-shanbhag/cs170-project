@@ -43,7 +43,6 @@ def add_fn_approximation(
 
 def solve(name: str):
     k_max, norm_sum_max, exp_intervals, best_score = get_hyperparameters(name)
-
     G: nx.Graph = read_input(f"inputs/{name}.in")
     log("SOLVING:", name)
     log("K_MAX:", k_max)
@@ -52,7 +51,7 @@ def solve(name: str):
     size = len(G.nodes)
 
     model = pl.LpProblem("CS 170 Solver", pl.LpMinimize)
-    solver = pl.GUROBI(Threads=8, warmStart=True)
+    solver = pl.GUROBI(Threads=16, warmStart=True)
 
     def sol_callback(model, where):
         get_var = lambda name: model.cbGetSolution(model.getVarByName(name))
@@ -233,4 +232,5 @@ def solve(name: str):
     solver.actualSolve(model, sol_callback)
     log("FINISHED SOLVING:", name)
 
-solve("small251")
+
+solve("large1")
