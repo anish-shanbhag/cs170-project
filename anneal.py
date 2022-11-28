@@ -20,7 +20,7 @@ class PenguinState:
     # list of team counts
     p: np.ndarray
     # sets of penguins on each team
-    s: dict[int, set[int]]
+    s: dict  # : dict[int, set[int]]
     # number of teams
     k: int
     # distribution score component
@@ -124,7 +124,7 @@ def anneal(name: str):
         problem = PenguinProblem(name, k_max)
         problem.Tmax = 33000
         problem.Tmin = 5.5
-        problem.steps = 20000
+        problem.steps = 150000
         problem.updates = problem.steps // 1000
 
         state = problem.anneal()[0]
@@ -138,10 +138,10 @@ def anneal(name: str):
             log(f"SKIPPING OUTPUT UPDATE for {name}:", score(problem.G))
 
 
-# i = 3
-# for i in list(range(260))[i * 18 : (i + 1) * 18]:
-#     anneal("small" + str(i + 1))
-#     anneal("medium" + str(i + 1))
-#     anneal("large" + str(i + 1))
+i = 6
+for i in list(range(130, 260))[i * 18 : (i + 1) * 18]:
+    anneal("small" + str(i + 1))
+    anneal("medium" + str(i + 1))
+    anneal("large" + str(i + 1))
 
-anneal("large100")
+# anneal("large100")

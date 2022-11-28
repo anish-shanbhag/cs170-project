@@ -92,7 +92,7 @@ def write_vars_from_graph(name: str, G: nx.Graph):
         SQRT_INTERVALS,
         0,
         norm_sum_max,
-        lambda x: math.sqrt(x),
+        lambda x: math.sqrt(abs(max(0, x))),
     )
     exp_input = 70 * vars["norm_sum_sqrt"]
     vars["exp_input"] = exp_input
