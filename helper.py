@@ -27,6 +27,14 @@ def is_new_best(name: str, G: nx.Graph) -> bool:
         return score(G) <= old_score
     return True
 
+def check_score(name: str) -> int:
+    if os.path.isfile(f"outputs/{name}.out"):
+        old_G = read_input(f"inputs/{name}.in")
+        old_G = read_output(old_G, f"outputs/{name}.out")
+        old_score = score(old_G)
+        return old_score
+    return 1000000000
+
 
 def write_vars_from_graph(name: str, G: nx.Graph):
     k_max, norm_sum_max, exp_intervals, best_score = get_hyperparameters(name)
