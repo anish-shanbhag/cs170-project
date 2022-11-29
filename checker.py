@@ -8,13 +8,8 @@ with open("scores.json") as f:
 short, medium, long = [], [], []
 for name in range(300):
     short_name = "small" + str(name)
-    if os.path.isfile(f"{short_name}.out"):
+    if os.path.isfile(f"outputs/{short_name}.out"):
         old_score = score(read_output(read_input(f"inputs/{short_name}.in"), f"outputs/{short_name}.out"))
-        c_score = score(read_output(read_input(f"inputs/{short_name}.in"), f"{short_name}.out"))
-        if c_score < old_score:
-            with open(f"{short_name}.out") as f:
-                with open(f"outputs/{short_name}.out", "w") as f2:
-                    f2.write(f.read())
         best_score = scores[short_name]
         if ((old_score - best_score) / best_score) > 0.01:
             short.append(name)
@@ -48,4 +43,14 @@ def checkandreplace(short_name):
     for file in os.listdir():
         if file.startswith(short_name):
             os.remove(file)
+            
+
+myList = ""
+for i in ["small", "medium", "large"]:
+    for j in range(1, 261):
+        myList += str(scores[i+str(j)]) + "\n"
+            
+## save to scores.txt
+with open("scores.txt", "w") as f:
+    f.write(myList)
         
