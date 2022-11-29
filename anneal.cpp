@@ -12,14 +12,16 @@ const double e = 2.718281828459;
 int main() {
     double T_min = 4.5;
     double T_max = 33000;
-    int steps = 100000000;
+    int steps = 200000000;
 
     const int size = 100;
     const int k_max = 12;
 
     int w[size][size];
 
-    string name = "small34";
+    // run a loop iterating int gnum from 1 to 260
+    for (int gnum = 1; gnum <= 260; gnum++) {
+    string name = "small" + to_string(gnum);
 
     ifstream fp("weights/" + name + ".txt");
     for (int i = 0; i < size; i++) {
@@ -139,4 +141,5 @@ int main() {
     cout << "Finished " << steps << " steps in " << (clock() - start_time) / (double) CLOCKS_PER_SEC << " seconds" << endl;
 
     return 0;
+    }
 }
