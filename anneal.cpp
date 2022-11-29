@@ -18,7 +18,10 @@ int main() {
     const int k_max = 12;
 
     int w[size][size];
-    ifstream fp("weights/small34.txt");
+
+    string name = "small34";
+
+    ifstream fp("weights/" + name + ".txt");
     for (int i = 0; i < size; i++) {
         for (int j = 0; j < size; j++) {
             fp >> w[i][j];
@@ -122,6 +125,17 @@ int main() {
         cout << ", " << best_x[i];
     }
     cout << "]" << endl;
+
+    
+    ofstream out(name + ".out");
+    out << "[" << best_x[0];
+    for (int i = 1; i < size; i++) {
+        out << ", " << best_x[i];
+    }
+    out << "]" << endl;
+    out.close();
+
+
     cout << "Finished " << steps << " steps in " << (clock() - start_time) / (double) CLOCKS_PER_SEC << " seconds" << endl;
 
     return 0;
