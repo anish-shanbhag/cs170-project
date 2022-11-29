@@ -120,11 +120,11 @@ class PenguinProblem(Annealer):
 
 def anneal(name: str):
     actual_k_max, *_ = get_hyperparameters(name)
-    for k_max in range(max(2, actual_k_max - 4), actual_k_max + 1):
+    for k_max in [6]:  # range(max(2, actual_k_max - 4), actual_k_max + 1):
         problem = PenguinProblem(name, k_max)
         problem.Tmax = 33000
         problem.Tmin = 5.5
-        problem.steps = 150000
+        problem.steps = 50000
         problem.updates = problem.steps // 1000
 
         state = problem.anneal()[0]
@@ -139,9 +139,9 @@ def anneal(name: str):
 
 
 i = 6
-for i in list(range(130, 260))[i * 18 : (i + 1) * 18]:
-    anneal("small" + str(i + 1))
-    anneal("medium" + str(i + 1))
-    anneal("large" + str(i + 1))
+# for i in list(range(130, 260))[i * 18 : (i + 1) * 18]:
+#     anneal("small" + str(i + 1))
+#     anneal("medium" + str(i + 1))
+#     anneal("large" + str(i + 1))
 
-# anneal("large100")
+anneal("large1")

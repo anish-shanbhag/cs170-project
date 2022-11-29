@@ -27,6 +27,7 @@ def is_new_best(name: str, G: nx.Graph) -> bool:
         return score(G) <= old_score
     return True
 
+
 def check_score(name: str) -> int:
     if os.path.isfile(f"outputs/{name}.out"):
         old_G = read_input(f"inputs/{name}.in")
@@ -137,6 +138,15 @@ def write_vars_from_output(name: str):
     G = read_input(f"inputs/{name}.in")
     G = read_output(G, f"outputs/{name}.out")
     write_vars_from_graph(name, G)
+
+
+def write_weights_from_input(name: str):
+    G = read_input(f"inputs/{name}.in")
+    with open(f"weights/{name}.txt", "w") as f:
+        for i in range(len(G.nodes)):
+            for j in range(len(G.nodes)):
+                w = G.edges[i, j]["weight"] if G.has_edge(i, j) else 0
+                f.write(f"{w}\n")
 
 
 # name = "small43"
