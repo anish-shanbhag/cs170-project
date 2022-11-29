@@ -4,24 +4,30 @@
 #include <unordered_set>
 #include <random>
 #include <time.h>
+#include <pthread.h>
 
 using namespace std;
+#define NUM_THREADS 32
 
-const double e = 2.718281828459;
+struct thread_data {
+   int  thread_id;
+   int k_max;
+   char *message;
+};
 
-int main() {
+void *anneal(void *tdObj) {
+    const double e = 2.718281828459;
     double T_min = 4.5;
     double T_max = 33000;
-    int steps = 200000000;
+    int steps = 100000000;
 
     const int size = 100;
-    const int k_max = 12;
+    const int k_max = ((thread_data *)tdObj)->k_max;
 
     int w[size][size];
-
-    // run a loop iterating int gnum from 1 to 260
-    for (int gnum = 1; gnum <= 260; gnum++) {
-    string name = "small" + to_string(gnum);
+    
+    int theNum = ((thread_data *)tdObj)->thread_id;
+   string name = "small" + to_string(theNum);
 
     ifstream fp("weights/" + name + ".txt");
     for (int i = 0; i < size; i++) {
@@ -32,8 +38,14 @@ int main() {
 
     // state variables
     int x[size];
-    int p[k_max] = {};
-    double b[k_max] = {};
+    int p[k_max];
+    for (int i = 0; i < k_max; i++) {
+        p[i] = 0;
+    }
+    double b[k_max];
+    for (int i = 0; i < k_max; i++) {
+        b[i] = 0;
+    }
     double b_sum = 0;
     unordered_set<int> s[k_max];
     double d;
@@ -122,14 +134,14 @@ int main() {
         }
     }
 
-    cout << "Best assignment: " << endl << "[" << best_x[0];
+    cout << "Best assignment (" << best_score << ") " << name << " : " << endl << "[" << best_x[0];
     for (int i = 1; i < size; i++) {
         cout << ", " << best_x[i];
     }
     cout << "]" << endl;
 
     
-    ofstream out(name + ".out");
+    ofstream out(name + "_" + to_string(k_max) + ".out");
     out << "[" << best_x[0];
     for (int i = 1; i < size; i++) {
         out << ", " << best_x[i];
@@ -137,9 +149,30 @@ int main() {
     out << "]" << endl;
     out.close();
 
-
-    cout << "Finished " << steps << " steps in " << (clock() - start_time) / (double) CLOCKS_PER_SEC << " seconds" << endl;
-
-    return 0;
-    }
+   pthread_exit(NULL);
 }
+
+int main() {
+    int num = 5;
+    int k_min = 1;
+    int k_max = 15;
+    pthread_t threads[k_max - k_min];
+    struct thread_data td[k_max - k_min];
+    int rc;
+    int i;
+    for( i = k_min; i <= k_max; i++ ) {
+      cout <<"main() : creating thread, " << i << endl;
+      td[i - k_min].thread_id = num;
+      td[i - k_min].message = "This is message";
+      td[i - k_min].k_max = i;
+      rc = pthread_create(&threads[i - k_min], NULL, anneal, (void *)&td[i - k_min]);
+      
+      if (rc) {
+         cout << "Error:unable to create thread," << rc << endl;
+         exit(-1);
+      }
+   }
+   pthread_exit(NULL);
+}
+
+// g++ -o rideThatSlay anneal.cpp g++ -o rideThatSlay anneal.cpp -lpthread
