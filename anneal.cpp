@@ -19,7 +19,7 @@ void *anneal(void *tdObj) {
     const double e = 2.718281828459;
     double T_min = 4.5;
     double T_max = 33000;
-    int steps = 5000;
+    int steps = 500000000;
 
     const int size = 100;
     const int k_max = ((thread_data *)tdObj)->k_max;
@@ -153,9 +153,18 @@ void *anneal(void *tdObj) {
 }
 
 int main() {
-    int num = 6;
-    int k_min = 7;
-    int k_max = 7;
+    int k_max_list[] = {42, 47, 48, 51, 54, 55, 56, 57, 61, 63, 64, 65, 68, 72, 73, 77, 80, 82, 87, 88, 89, 106, 107, 112, 113, 115, 118, 124, 127, 131, 132, 133, 134, 135, 136, 137, 138, 139, 141, 143, 145, 146, 147, 150, 151, 152, 154, 160, 163, 166, 167, 168, 169, 170, 174, 175, 177, 178, 182, 185, 186, 187, 189, 193, 194, 196, 197, 199, 200, 201, 205, 208, 210, 212, 213, 214, 215, 219, 220, 221, 224, 225, 227, 228, 232, 233, 236, 238, 239, 240, 242, 244, 245, 248, 250, 251, 252, 253, 254, 255};
+    // iterate through k_max_list
+    for (int iterator = 0; iterator < 100; iterator++) {
+        int num = k_max_list[iterator];
+    ifstream fp("scores.txt");
+    string myscore;
+    for (int i = 0; i < num; i++) {
+        fp >> myscore;
+    }
+    int intScore = stoi(myscore);
+    int k_max = floor(2 * log(intScore / 100));
+    int k_min = 1;
     pthread_t threads[k_max - k_min];
     struct thread_data td[k_max - k_min];
     int rc;
@@ -172,7 +181,11 @@ int main() {
          exit(-1);
       }
    }
-   pthread_exit(NULL);
+   // wait for all threads to finish
+    for (i = k_min; i <= k_max; i++) {
+        pthread_join(threads[i - k_min], NULL);
+    }
+}
 }
 
 // g++ -o rideThatSlay anneal.cpp -O3 -funroll-loops -lpthread
