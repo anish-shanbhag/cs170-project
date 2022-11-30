@@ -4,94 +4,123 @@
 #include <unordered_set>
 #include <random>
 #include <time.h>
-#include <pthread.h>
+#include <string>
 
 using namespace std;
-#define NUM_THREADS 32
 
-struct thread_data {
-   int  thread_id;
-   int k_max;
-   char *message;
-};
+string type = "medium";
+const int nodes = 300;
+const int steps = 10000000;
+const int input_offset = 260;
 
-void *anneal(void *tdObj) {
-    const double e = 2.718281828459;
-    double T_min = 4.5;
-    double T_max = 33000;
-    int steps = 500000000;
+int get_k_from_output(int num) {
+    ifstream xfp("cpp-outputs/" + type + to_string(num) + ".out");
+    int k = 0;
+    for (int i = 0; i < nodes; i++) {
+        int val;
+        xfp >> val;
+        if (val > k) {
+            k = val;
+        }
+    }
+    xfp.close();
+    return k;
+}
 
-    const int size = 100;
-    const int k_max = ((thread_data *)tdObj)->k_max;
+void get_initial_state_from_output(
+    int num,
+    int k_max,
+    int w[nodes][nodes],
+    int x[nodes],
+    int p[],
+    unordered_set<int> s[],
+    double b[],
+    double* b_sum,
+    double* d,
+    double* score
+) {
+    *score = 0;
+    *b_sum = 0;
+    *d = 0;
 
-    int w[size][size];
-
-    int theNum = ((thread_data *)tdObj)->thread_id;
-    string name = "small" + to_string(theNum);
-
-    ifstream fp("weights/" + name + ".txt");
-    for (int i = 0; i < size; i++) {
-        for (int j = 0; j < size; j++) {
+    ifstream fp("weights/" + type + to_string(num) + ".txt");
+    for (int i = 0; i < nodes; i++) {
+        for (int j = 0; j < nodes; j++) {
             fp >> w[i][j];
         }
     }
 
-    // state variables
-    int x[size];
-    int p[k_max];
-    for (int i = 0; i < k_max; i++) {
-        p[i] = 0;
-    }
-    double b[k_max];
-    for (int i = 0; i < k_max; i++) {
-        b[i] = 0;
-    }
-    double b_sum = 0;
-    unordered_set<int> s[k_max];
-    double d;
-    double score = 0;
-
-    // initial state
-    for (int i = 0; i < size; i++) {
-        x[i] = (i % k_max) + 1;
+    ifstream xfp("cpp-outputs/" + type + to_string(num) + ".out");
+    for (int i = 0; i < nodes; i++) {
+        xfp >> x[i];
+        x[i] = min(x[i], k_max);
         p[x[i] - 1]++;
         s[x[i] - 1].insert(i);
     }
+    xfp.close();
 
-    for (int i = 0; i < size; i++) {
-        for (int j = i + 1; j < size; j++) {
+    for (int i = 0; i < nodes; i++) {
+        for (int j = i + 1; j < nodes; j++) {
             if (x[i] == x[j]) {
-                score += w[i][j];
+                *score += w[i][j];
             }
         }
     }
 
-    score += 100 * pow(e, 0.5 * k_max);
+    *score += 100 * exp(0.5 * k_max);
 
     for (int i = 0; i < k_max; i++) {
-        b[i] = (double) p[i] / size - 1.0 / k_max;
+        b[i] = (double) p[i] / nodes - 1.0 / k_max;
     }
-    for (int i = 0; i < k_max; i++) {
-        b_sum += b[i] * b[i];
-    }
-    d = pow(e, 70 * sqrt(b_sum));
-    score += d;
 
+    for (int i = 0; i < k_max; i++) {
+        *b_sum += b[i] * b[i];
+    }
+
+    *d = exp(70 * sqrt(*b_sum));
+    *score += *d;
+}
+
+void anneal(int num, int k_max) {
+    double T_min = 4.5;
+    double T_max = 33000;
+
+    int w[nodes][nodes] = {};
+    int x[nodes] = {};
+    int p[k_max] = {};
+    unordered_set<int> s[k_max];
+    double b[k_max] = {};
+    double b_sum = 0;
+    double d = 0;
+    double score = 0;
+
+    get_initial_state_from_output(
+        num,
+        k_max,
+        w,
+        x,
+        p,
+        s,
+        b,
+        &b_sum,
+        &d,
+        &score
+    );
 
     // simulated annealing
     clock_t start_time = clock();
-    double best_score = 1000000000;
-    double best_x[size];
+    double best_score = 1000000000.0;
+    double best_x[nodes];
     double T = T_max;
     double T_factor = -log(T_max / T_min);
     random_device dev;
     mt19937 rng(dev());
-    uniform_int_distribution<mt19937::result_type> x_dist(0, size - 1);
+    uniform_int_distribution<mt19937::result_type> x_dist(0, nodes - 1);
     uniform_int_distribution<mt19937::result_type> k_dist(1, k_max);
     uniform_real_distribution<double> T_dist(0.0, 1.0);
 
     for (double step = 0; step < steps; step++) {
-        T = T_max * pow(e, T_factor * step / steps);
+        T = T_max * exp(T_factor * step / steps);
         int i = x_dist(rng);
         double delta = 0;
 
@@ -108,8 +137,8 @@ void *anneal(void *tdObj) {
             delta += w[i][j];
         }
 
-        double new_b_sum = b_sum - pow(b[x[i] - 1], 2) - pow(b[new_x - 1], 2) + pow(b[x[i] - 1] - 1.0 / size, 2) + pow(b[new_x - 1] + 1.0 / size, 2);
-        double new_d = pow(e, 70 * sqrt(new_b_sum));
+        double new_b_sum = b_sum - pow(b[x[i] - 1], 2) - pow(b[new_x - 1], 2) + pow(b[x[i] - 1] - 1.0 / nodes, 2) + pow(b[new_x - 1] + 1.0 / nodes, 2);
+        double new_d = exp(70 * sqrt(new_b_sum));
         delta += new_d - d;
 
         if (delta <= 0 || exp(-delta / T) > T_dist(rng)) {
@@ -118,74 +147,73 @@ void *anneal(void *tdObj) {
             d = new_d;
             p[x[i] - 1]--;
             p[new_x - 1]++;
-            b[x[i] - 1] -= 1.0 / size;
-            b[new_x - 1] += 1.0 / size;
+            b[x[i] - 1] -= 1.0 / nodes;
+            b[new_x - 1] += 1.0 / nodes;
             s[x[i] - 1].erase(i);
             s[new_x - 1].insert(i);
             x[i] = new_x;
 
             if (score < best_score) {
                 best_score = score;
-                for (int i = 0; i < size; i++) {
+                for (int i = 0; i < nodes; i++) {
                     best_x[i] = x[i];
                 }
-                cout << "step " << step << " score " << score << endl;
+                // cout << "step " << step << " score " << score << endl;
             }
         }
     }
 
-    cout << "Best assignment (" << best_score << ") " << name << " : " << endl << "[" << best_x[0];
-    for (int i = 1; i < size; i++) {
-        cout << ", " << best_x[i];
+    int k = get_k_from_output(num);
+    int old_p[k] = {};
+    unordered_set<int> old_s[k];
+    double old_b[k] = {};
+    double old_score = 0;
+    get_initial_state_from_output(
+        num,
+        k,
+        w,
+        x,
+        old_p,
+        old_s,
+        old_b,
+        &b_sum,
+        &d,
+        &old_score
+    );
+    if (best_score < old_score) {
+        cout << "NEW BEST SCORE (up from " << old_score << "): ";
+        ofstream out("cpp-outputs/" + type + to_string(num) + ".out");
+        for (int i = 0; i < nodes; i++) {
+            out << best_x[i] << endl;
+        }
+        out.close();
+    } else {
+        cout << "Skipping score ";
     }
-    cout << "]" << endl;
+    cout << best_score << " for input " << type << num << " with k_max = " << k_max << " (" << (clock() - start_time) / CLOCKS_PER_SEC << " sec)" << endl;
+}
 
-
-    ofstream out(name + "_" + to_string(k_max) + ".out");
-    out << "[" << best_x[0];
-    for (int i = 1; i < size; i++) {
-        out << ", " << best_x[i];
+void anneal(int num, double best_scores[]) {
+    double score_to_beat = best_scores[input_offset + num - 1];
+    int k_actual_max = floor(2 * log(score_to_beat / 100.0));
+    int k_min = max(2, k_actual_max - 5);
+    for (int k_max = k_min; k_max <= k_actual_max; k_max++) {
+        anneal(num, k_max);
     }
-    out << "]" << endl;
-    out.close();
-
-   pthread_exit(NULL);
 }
 
 int main() {
-    int k_max_list[] = {42, 47, 48, 51, 54, 55, 56, 57, 61, 63, 64, 65, 68, 72, 73, 77, 80, 82, 87, 88, 89, 106, 107, 112, 113, 115, 118, 124, 127, 131, 132, 133, 134, 135, 136, 137, 138, 139, 141, 143, 145, 146, 147, 150, 151, 152, 154, 160, 163, 166, 167, 168, 169, 170, 174, 175, 177, 178, 182, 185, 186, 187, 189, 193, 194, 196, 197, 199, 200, 201, 205, 208, 210, 212, 213, 214, 215, 219, 220, 221, 224, 225, 227, 228, 232, 233, 236, 238, 239, 240, 242, 244, 245, 248, 250, 251, 252, 253, 254, 255};
-    // iterate through k_max_list
-    for (int iterator = 0; iterator < 100; iterator++) {
-        int num = k_max_list[iterator];
-    ifstream fp("scores.txt");
-    string myscore;
-    for (int i = 0; i < num; i++) {
-        fp >> myscore;
+    ifstream sfp("scores.txt");
+    double best_scores[260 * 3];
+    for (int i = 0; i < 260 * 3; i++) {
+        sfp >> best_scores[i];
     }
-    int intScore = stoi(myscore);
-    int k_max = floor(2 * log(intScore / 100));
-    int k_min = 1;
-    pthread_t threads[k_max - k_min];
-    struct thread_data td[k_max - k_min];
-    int rc;
-    int i;
-    for( i = k_min; i <= k_max; i++ ) {
-      cout <<"main() : creating thread, " << i << endl;
-      td[i - k_min].thread_id = num;
-      td[i - k_min].message = "This is message";
-      td[i - k_min].k_max = i;
-      rc = pthread_create(&threads[i - k_min], NULL, anneal, (void *)&td[i - k_min]);
+    sfp.close();
 
-      if (rc) {
-         cout << "Error:unable to create thread," << rc << endl;
-         exit(-1);
-      }
-   }
-   // wait for all threads to finish
-    for (i = k_min; i <= k_max; i++) {
-        pthread_join(threads[i - k_min], NULL);
+    for (int i = 19; i <= 20; i++) {
+        anneal(i, best_scores);
     }
-}
+    return 0;
 }
 
 // g++ -o rideThatSlay anneal.cpp -O3 -funroll-loops -lpthread

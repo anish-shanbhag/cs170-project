@@ -149,6 +149,15 @@ def write_weights_from_input(name: str):
                 f.write(f"{w}\n")
 
 
+def write_cpp_outputs():
+    for name in os.listdir("outputs"):
+        if name.endswith(".out"):
+            with open(f"outputs/{name}", "r") as f:
+                teams = json.load(f)
+            with open(f"cpp-outputs/{name}", "w") as f:
+                f.write("\n".join([str(team) for team in teams]) + "\n")
+
+
 # name = "small43"
 # G = read_input(f"inputs/{name}.in")
 # G = read_output(G, f"outputs/{name}.out")
