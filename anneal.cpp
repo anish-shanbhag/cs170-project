@@ -10,8 +10,10 @@ using namespace std;
 
 string type = "medium";
 const int nodes = 300;
-const int steps = 10000000;
 const int input_offset = 260;
+const int steps = 500000000;
+const int portion = 0;
+const int inputs_per_portion = 35;
 
 int get_k_from_output(int num) {
     ifstream xfp("cpp-outputs/" + type + to_string(num) + ".out");
@@ -84,7 +86,6 @@ void get_initial_state_from_output(
 void anneal(int num, int k_max) {
     double T_min = 4.5;
     double T_max = 33000;
-
     int w[nodes][nodes] = {};
     int x[nodes] = {};
     int p[k_max] = {};
@@ -181,7 +182,7 @@ void anneal(int num, int k_max) {
         &old_score
     );
     if (best_score < old_score) {
-        cout << "NEW BEST SCORE (up from " << old_score << "): ";
+        cout << "NEW BEST SCORE (down from " << old_score << "): ";
         ofstream out("cpp-outputs/" + type + to_string(num) + ".out");
         for (int i = 0; i < nodes; i++) {
             out << best_x[i] << endl;
@@ -195,7 +196,7 @@ void anneal(int num, int k_max) {
 
 void anneal(int num, double best_scores[]) {
     double score_to_beat = best_scores[input_offset + num - 1];
-    int k_actual_max = floor(2 * log(score_to_beat / 100.0));
+    int k_actual_max = max(2, floor(2 * log(score_to_beat / 100.0)));
     int k_min = max(2, k_actual_max - 5);
     for (int k_max = k_min; k_max <= k_actual_max; k_max++) {
         anneal(num, k_max);
@@ -210,10 +211,10 @@ int main() {
     }
     sfp.close();
 
-    for (int i = 19; i <= 20; i++) {
+    for (int i = 1 + portion * inputs_per_portion; i < 1 + (portion + 1) * inputs_per_portion; i++) {
         anneal(i, best_scores);
     }
     return 0;
 }
 
-// g++ -o rideThatSlay anneal.cpp -O3 -funroll-loops -lpthread
+// g++ -o rideThatSlay anneal.cpp -O3
