@@ -19,15 +19,15 @@ void *anneal(void *tdObj) {
     const double e = 2.718281828459;
     double T_min = 4.5;
     double T_max = 33000;
-    int steps = 100000000;
+    int steps = 5000;
 
     const int size = 100;
     const int k_max = ((thread_data *)tdObj)->k_max;
 
     int w[size][size];
-    
+
     int theNum = ((thread_data *)tdObj)->thread_id;
-   string name = "small" + to_string(theNum);
+    string name = "small" + to_string(theNum);
 
     ifstream fp("weights/" + name + ".txt");
     for (int i = 0; i < size; i++) {
@@ -140,7 +140,7 @@ void *anneal(void *tdObj) {
     }
     cout << "]" << endl;
 
-    
+
     ofstream out(name + "_" + to_string(k_max) + ".out");
     out << "[" << best_x[0];
     for (int i = 1; i < size; i++) {
@@ -153,9 +153,9 @@ void *anneal(void *tdObj) {
 }
 
 int main() {
-    int num = 5;
-    int k_min = 1;
-    int k_max = 15;
+    int num = 6;
+    int k_min = 7;
+    int k_max = 7;
     pthread_t threads[k_max - k_min];
     struct thread_data td[k_max - k_min];
     int rc;
@@ -166,7 +166,7 @@ int main() {
       td[i - k_min].message = "This is message";
       td[i - k_min].k_max = i;
       rc = pthread_create(&threads[i - k_min], NULL, anneal, (void *)&td[i - k_min]);
-      
+
       if (rc) {
          cout << "Error:unable to create thread," << rc << endl;
          exit(-1);
@@ -175,4 +175,4 @@ int main() {
    pthread_exit(NULL);
 }
 
-// g++ -o rideThatSlay anneal.cpp g++ -o rideThatSlay anneal.cpp -lpthread
+// g++ -o rideThatSlay anneal.cpp -O3 -funroll-loops -lpthread
