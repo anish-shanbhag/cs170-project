@@ -8,12 +8,13 @@
 
 using namespace std;
 
-string type = "medium";
-const int nodes = 300;
-const int input_offset = 260;
-const int steps = 500000000;
-const int portion = 0;
-const int inputs_per_portion = 35;
+string type = "large";
+const int nodes = 1000;
+const int input_offset = 2 * 260;
+const int steps = 5000000;
+const int inputs_per_portion = 20;
+const bool run_all = false;
+const bool try_to_break_ties = true;
 
 int get_k_from_output(int num) {
     ifstream xfp("cpp-outputs/" + type + to_string(num) + ".out");
@@ -83,7 +84,7 @@ void get_initial_state_from_output(
     *score += *d;
 }
 
-void anneal(int num, int k_max) {
+void anneal(int num, int k_max, double score_to_beat, double old_score) {
     double T_min = 4.5;
     double T_max = 33000;
     int w[nodes][nodes] = {};
@@ -164,23 +165,6 @@ void anneal(int num, int k_max) {
         }
     }
 
-    int k = get_k_from_output(num);
-    int old_p[k] = {};
-    unordered_set<int> old_s[k];
-    double old_b[k] = {};
-    double old_score = 0;
-    get_initial_state_from_output(
-        num,
-        k,
-        w,
-        x,
-        old_p,
-        old_s,
-        old_b,
-        &b_sum,
-        &d,
-        &old_score
-    );
     if (best_score < old_score) {
         cout << "NEW BEST SCORE (down from " << old_score << "): ";
         ofstream out("cpp-outputs/" + type + to_string(num) + ".out");
@@ -196,14 +180,43 @@ void anneal(int num, int k_max) {
 
 void anneal(int num, double best_scores[]) {
     double score_to_beat = best_scores[input_offset + num - 1];
-    int k_actual_max = max(2, floor(2 * log(score_to_beat / 100.0)));
+    int k_actual_max = max(2, (int) floor(2 * log(score_to_beat / 100.0)));
     int k_min = max(2, k_actual_max - 5);
+
+    int w[nodes][nodes] = {};
+    int x[nodes] = {};
+    int k = get_k_from_output(num);
+    int p[k] = {};
+    unordered_set<int> old_s[k];
+    double b[k] = {};
+    double b_sum;
+    double d;
+    double old_score = 0;
+    get_initial_state_from_output(
+        num,
+        k,
+        w,
+        x,
+        p,
+        old_s,
+        b,
+        &b_sum,
+        &d,
+        &old_score
+    );
+
+    if (!run_all && (old_score < score_to_beat || (old_score == score_to_beat && !try_to_break_ties))) {
+        cout << "Already have a 1st place: " << old_score << " for input " << type << num << " with k_max = " << k << " 1st place is " << score_to_beat << ")" << endl;
+        return;
+    }
+
+    cout << "Our current best for " << type << num << " is " << old_score << " (need to beat " << score_to_beat << ")" << endl;
     for (int k_max = k_min; k_max <= k_actual_max; k_max++) {
-        anneal(num, k_max);
+        anneal(num, k_max, score_to_beat, old_score);
     }
 }
 
-int main() {
+int main(int argc, char *argv[]) {
     ifstream sfp("scores.txt");
     double best_scores[260 * 3];
     for (int i = 0; i < 260 * 3; i++) {
@@ -211,6 +224,7 @@ int main() {
     }
     sfp.close();
 
+    int portion = stoi(argv[1]);
     for (int i = 1 + portion * inputs_per_portion; i < 1 + (portion + 1) * inputs_per_portion; i++) {
         anneal(i, best_scores);
     }
