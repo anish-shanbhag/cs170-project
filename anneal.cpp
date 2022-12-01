@@ -1,20 +1,28 @@
 #include <iostream>
 #include <fstream>
-#include <unordered_map>
 #include <unordered_set>
 #include <random>
 #include <time.h>
 #include <string>
+#include <thread>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
 
 using namespace std;
 
 string type = "large";
 const int nodes = 1000;
 const int input_offset = 2 * 260;
-const int steps = 5000000;
-const int inputs_per_portion = 20;
+const int steps = 10000000;
 const bool run_all = false;
-const bool try_to_break_ties = true;
+const bool try_to_break_ties = false;
+const int concurrency = 16;
+
+mutex m;
+condition_variable cond;
+atomic<bool> finished;
 
 int get_k_from_output(int num) {
     ifstream xfp("cpp-outputs/" + type + to_string(num) + ".out");
@@ -110,7 +118,7 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
     );
 
     // simulated annealing
-    clock_t start_time = clock();
+    time_t start_time = time(NULL);
     double best_score = 1000000000.0;
     double best_x[nodes];
     double T = T_max;
@@ -172,13 +180,14 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
             out << best_x[i] << endl;
         }
         out.close();
+        cout << best_score << " for input " << type << num << " with k_max = " << k_max << " (" << (time(NULL) - start_time) << " sec)" << endl;
     } else {
-        cout << "Skipping score ";
+        // Move the line above to below the if/else if you want to see skip output
+        // cout << "Skipping score ";
     }
-    cout << best_score << " for input " << type << num << " with k_max = " << k_max << " (" << (clock() - start_time) / CLOCKS_PER_SEC << " sec)" << endl;
 }
 
-void anneal(int num, double best_scores[]) {
+void anneal_num(int num, double best_scores[]) {
     double score_to_beat = best_scores[input_offset + num - 1];
     int k_actual_max = max(2, (int) floor(2 * log(score_to_beat / 100.0)));
     int k_min = max(2, k_actual_max - 5);
@@ -205,18 +214,19 @@ void anneal(int num, double best_scores[]) {
         &old_score
     );
 
-    if (!run_all && (old_score < score_to_beat || (old_score == score_to_beat && !try_to_break_ties))) {
-        cout << "Already have a 1st place: " << old_score << " for input " << type << num << " with k_max = " << k << " 1st place is " << score_to_beat << ")" << endl;
-        return;
+    if (!run_all && (old_score < score_to_beat || (abs(score_to_beat - old_score) < 0.001 && !try_to_break_ties))) {
+        cout << "Already have a 1st place: " << old_score << " for input " << type << num << " with k_max = " << k << " (1st place is " << score_to_beat << ")" << endl;
+    } else {
+        cout << "Our current best for " << type << num << " is " << old_score << " (need to beat " << score_to_beat << ")" << endl;
+        for (int k_max = k_min; k_max <= k_actual_max; k_max++) {
+            anneal(num, k_max, score_to_beat, old_score);
+        }
     }
-
-    cout << "Our current best for " << type << num << " is " << old_score << " (need to beat " << score_to_beat << ")" << endl;
-    for (int k_max = k_min; k_max <= k_actual_max; k_max++) {
-        anneal(num, k_max, score_to_beat, old_score);
-    }
+    finished = true;
+    cond.notify_all();
 }
 
-int main(int argc, char *argv[]) {
+int main() {
     ifstream sfp("scores.txt");
     double best_scores[260 * 3];
     for (int i = 0; i < 260 * 3; i++) {
@@ -224,11 +234,21 @@ int main(int argc, char *argv[]) {
     }
     sfp.close();
 
-    int portion = stoi(argv[1]);
-    for (int i = 1 + portion * inputs_per_portion; i < 1 + (portion + 1) * inputs_per_portion; i++) {
-        anneal(i, best_scores);
+    for (int i = 1; i <= 260; i++) {
+        thread(anneal_num, i, best_scores).detach();
+        if (i >= concurrency) {
+            unique_lock<std::mutex> lock{m};
+            cond.wait(lock, [&] {
+                if (!finished) {
+                    return false;
+                } else {
+                    finished = false;
+                    return true;
+                }
+            });
+        }
     }
     return 0;
 }
 
-// g++ -o rideThatSlay anneal.cpp -O3
+// g++ -o rideThatSlay anneal.cpp -O3 -lpthread
