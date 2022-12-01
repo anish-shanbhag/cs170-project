@@ -13,9 +13,9 @@
 using namespace std;
 
 string type = "medium";
-const int nodes = 1000;
-const int input_offset = 2 * 260;
-const int steps = 100000000;
+const int nodes = 300;
+const int input_offset = 260;
+const int steps = 500000000;
 const bool run_all = false;
 const bool try_to_break_ties = false;
 const int concurrency = 16;
