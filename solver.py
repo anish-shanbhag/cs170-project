@@ -221,7 +221,6 @@ def solve(name: str):
     print([v for v in vars.items() if v[1] > 5])
 
     solver.buildSolverModel(model)
-
     if os.path.isfile(f"solutions/{name}.mst"):
         vars = {v.name: v for v in model.variables()}
         with open(f"solutions/{name}.mst", "r") as f:
@@ -233,4 +232,4 @@ def solve(name: str):
     log("FINISHED SOLVING:", name)
 
 
-solve("large1")
+solve("small236")

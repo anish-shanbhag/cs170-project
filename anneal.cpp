@@ -17,13 +17,13 @@ using namespace std;
 string type = "small";
 const int nodes = 100;
 const int input_offset = 0 * 260;
-const int steps = 100000000;
+const int steps = 200000000;
 const bool run_all = false;
 const bool try_to_break_ties = false;
 const int concurrency = 16;
 
 const double T_min = 4.5;
-const double T_max = 33000;
+const double T_max = 99000;
 
 mutex m;
 condition_variable cond;
@@ -176,7 +176,7 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
         }
     }
 
-    if (best_score < old_score) {
+    if (best_score < old_score - 0.0001) {
         cout << "NEW BEST SCORE (down from " << old_score << "): ";
         ofstream out("cpp-outputs/" + type + to_string(num) + ".out");
         for (int i = 0; i < nodes; i++) {
