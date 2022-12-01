@@ -158,6 +158,21 @@ def write_cpp_outputs():
                 f.write("\n".join([str(team) for team in teams]) + "\n")
 
 
+def write_outputs_from_cpp():
+    for name in os.listdir("cpp-outputs"):
+        if name.endswith(".out"):
+            print(name)
+            with open(f"cpp-outputs/{name}", "r") as f:
+                teams = [int(team) for team in f.read().split()]
+            old = read_output(read_input(f"inputs/{name[:-4]}.in"), f"outputs/{name}")
+            new = read_input(f"inputs/{name[:-4]}.in")
+            for i in range(len(teams)):
+                new.nodes[i]["team"] = teams[i]
+            if score(new) < score(old):
+                with open(f"outputs/{name}", "w") as f:
+                    json.dump(teams, f)
+
+
 # name = "small43"
 # G = read_input(f"inputs/{name}.in")
 # G = read_output(G, f"outputs/{name}.out")
