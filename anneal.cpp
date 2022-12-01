@@ -17,13 +17,13 @@ using namespace std;
 string type = "large";
 const int nodes = 1000;
 const int input_offset = 2 * 260;
-const int steps = 200000000;
+const int steps = 20000000;
 const bool run_all = false;
 const bool try_to_break_ties = false;
 const int concurrency = 16;
 
 const double T_min = 4.5;
-const double T_max = 33000;
+const double T_max = 99000;
 
 mutex m;
 condition_variable cond;
