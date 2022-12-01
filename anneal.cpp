@@ -12,7 +12,7 @@
 
 using namespace std;
 
-string type = "large";
+string type = "medium";
 const int nodes = 1000;
 const int input_offset = 2 * 260;
 const int steps = 100000000;
