@@ -14,10 +14,10 @@
 
 using namespace std;
 
-string type = "small";
-const int nodes = 100;
-const int input_offset = 0 * 260;
-const int steps = 200000000;
+string type = "large";
+const int nodes = 1000;
+const int input_offset = 2 * 260;
+const int steps = 20000000;
 const bool run_all = false;
 const bool try_to_break_ties = false;
 const int concurrency = 16;
