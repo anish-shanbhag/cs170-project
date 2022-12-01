@@ -149,28 +149,24 @@ def write_weights_from_input(name: str):
                 f.write(f"{w}\n")
 
 
-def write_cpp_outputs():
+def sync_outputs():
     for name in os.listdir("outputs"):
         if name.endswith(".out"):
-            with open(f"outputs/{name}", "r") as f:
-                teams = json.load(f)
-            with open(f"cpp-outputs/{name}", "w") as f:
-                f.write("\n".join([str(team) for team in teams]) + "\n")
-
-
-def write_outputs_from_cpp():
-    for name in os.listdir("cpp-outputs"):
-        if name.endswith(".out"):
             print(name)
+            cpp = read_input(f"inputs/{name[:-4]}.in")
             with open(f"cpp-outputs/{name}", "r") as f:
                 teams = [int(team) for team in f.read().split()]
-            old = read_output(read_input(f"inputs/{name[:-4]}.in"), f"outputs/{name}")
-            new = read_input(f"inputs/{name[:-4]}.in")
             for i in range(len(teams)):
-                new.nodes[i]["team"] = teams[i]
-            if score(new) < score(old):
-                with open(f"outputs/{name}", "w") as f:
-                    json.dump(teams, f)
+                cpp.nodes[i]["team"] = teams[i]
+            output = read_output(
+                read_input(f"inputs/{name[:-4]}.in"), f"outputs/{name}"
+            )
+            if score(output) <= score(cpp):
+                teams = [output.nodes[i]["team"] for i in range(len(output.nodes))]
+            with open(f"cpp-outputs/{name}", "w") as f:
+                f.write("\n".join([str(team) for team in teams]) + "\n")
+            with open(f"outputs/{name}", "w") as f:
+                f.write(json.dumps(teams))
 
 
 # name = "small43"
