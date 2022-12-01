@@ -46,6 +46,7 @@
         "xutility": "cpp",
         "random": "cpp",
         "algorithm": "cpp",
-        "string": "cpp"
+        "string": "cpp",
+        "mutex": "cpp"
     }
 }

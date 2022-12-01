@@ -12,13 +12,16 @@
 
 using namespace std;
 
-string type = "medium";
+string type = "large";
 const int nodes = 1000;
 const int input_offset = 2 * 260;
-const int steps = 100000000;
+const int steps = 10000000;
 const bool run_all = false;
 const bool try_to_break_ties = false;
 const int concurrency = 16;
+
+const double T_min = 4.5;
+const double T_max = 33000;
 
 mutex m;
 condition_variable cond;
@@ -93,8 +96,6 @@ void get_initial_state_from_output(
 }
 
 void anneal(int num, int k_max, double score_to_beat, double old_score) {
-    double T_min = 4.5;
-    double T_max = 33000;
     int w[nodes][nodes] = {};
     int x[nodes] = {};
     int p[k_max] = {};
@@ -234,8 +235,10 @@ int main() {
     }
     sfp.close();
 
-    for (int i = 1; i <= 260; i++) {
-        thread(anneal_num, i, best_scores).detach();
+    for (int i = 1; i <= 260 + concurrency; i++) {
+        if (i <= 260) {
+            thread(anneal_num, i, best_scores).detach();
+        }
         if (i >= concurrency) {
             unique_lock<std::mutex> lock{m};
             cond.wait(lock, [&] {
