@@ -47,6 +47,15 @@
         "random": "cpp",
         "algorithm": "cpp",
         "string": "cpp",
-        "mutex": "cpp"
+        "mutex": "cpp",
+        "atomic": "cpp",
+        "chrono": "cpp",
+        "condition_variable": "cpp",
+        "deque": "cpp",
+        "functional": "cpp",
+        "queue": "cpp",
+        "ratio": "cpp",
+        "xthread": "cpp",
+        "thread": "cpp"
     }
 }
