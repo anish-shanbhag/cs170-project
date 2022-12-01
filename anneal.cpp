@@ -17,7 +17,7 @@ using namespace std;
 string type = "small";
 const int nodes = 100;
 const int input_offset = 0 * 260;
-const int steps = 10000000;
+const int steps = 100000000;
 const bool run_all = false;
 const bool try_to_break_ties = false;
 const int concurrency = 16;
@@ -27,7 +27,7 @@ const double T_max = 33000;
 
 mutex m;
 condition_variable cond;
-atomic<bool> finished;
+atomic<int> threads;
 
 int get_k_from_output(int num) {
     ifstream xfp("cpp-outputs/" + type + to_string(num) + ".out");
@@ -191,6 +191,7 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
 }
 
 void anneal_num(int num, double best_scores[]) {
+    threads++;
     double score_to_beat = best_scores[input_offset + num - 1];
     int k_actual_max = max(2, (int) floor(2 * log(score_to_beat / 100.0)));
     int k_min = max(2, k_actual_max - 5);
@@ -218,14 +219,14 @@ void anneal_num(int num, double best_scores[]) {
     );
 
     if (!run_all && (old_score < score_to_beat || (abs(score_to_beat - old_score) < 0.001 && !try_to_break_ties))) {
-        cout << "Already have a 1st place: " << old_score << " for input " << type << num << " with k_max = " << k << " (1st place is " << score_to_beat << ")" << endl;
+        // cout << "Already have a 1st place: " << old_score << " for input " << type << num << " with k_max = " << k << " (1st place is " << score_to_beat << ")" << endl;
     } else {
         cout << "Our current best for " << type << num << " is " << old_score << " (need to beat " << score_to_beat << ")" << endl;
         for (int k_max = k_min; k_max <= k_actual_max; k_max++) {
             anneal(num, k_max, score_to_beat, old_score);
         }
     }
-    finished = true;
+    threads--;
     cond.notify_all();
 }
 
@@ -237,21 +238,14 @@ int main() {
     }
     sfp.close();
 
-    for (int i = 1; i <= 260 + concurrency; i++) {
-        if (i <= 260) {
-            thread(anneal_num, i, best_scores).detach();
-        }
-        if (i >= concurrency) {
+    for (int i = 1; i <= 260; i++) {
+        thread(anneal_num, i, best_scores).detach();
+        if (threads >= concurrency) {
             unique_lock<std::mutex> lock{m};
-            cond.wait(lock, [&] {
-                if (!finished) {
-                    return false;
-                } else {
-                    finished = false;
-                    return true;
-                }
-            });
+            cond.wait(lock, []{ return threads < concurrency; });
         }
     }
+    unique_lock<std::mutex> lock{m};
+    cond.wait(lock, []{ return threads == 0; });
     return 0;
 }
