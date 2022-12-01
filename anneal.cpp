@@ -1,3 +1,5 @@
+// g++ -o rideThatSlay anneal.cpp -O3 -lpthread
+
 #include <iostream>
 #include <fstream>
 #include <unordered_set>
@@ -12,7 +14,7 @@
 
 using namespace std;
 
-string type = "large";
+string type = "small";
 const int nodes = 1000;
 const int input_offset = 2 * 260;
 const int steps = 10000000;
@@ -253,5 +255,3 @@ int main() {
     }
     return 0;
 }
-
-// g++ -o rideThatSlay anneal.cpp -O3 -lpthread
