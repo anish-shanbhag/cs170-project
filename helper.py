@@ -9,14 +9,12 @@ from constants import EXP_INTERVAL_SCALE, SQ_INTERVALS, SQRT_INTERVALS
 from starter import read_input, read_output, score
 
 
-def get_hyperparameters(name: str, scale: float = 1):
+def get_hyperparameters(name: str):
     with open("scores.json") as f:
         scores = json.load(f)
         k_max = math.floor(2 * np.log(scores[name] / 100))
         norm_sum_max = (np.log(scores[name]) / 70) ** 2 + 0.01
-        exp_intervals = math.ceil(
-            scale * EXP_INTERVAL_SCALE * 70 * math.sqrt(norm_sum_max)
-        )
+        exp_intervals = math.ceil(EXP_INTERVAL_SCALE * 70 * math.sqrt(norm_sum_max))
         return k_max, norm_sum_max, exp_intervals, scores[name]
 
 
@@ -39,8 +37,8 @@ def check_score(name: str) -> int:
     return 1000000000
 
 
-def write_vars_from_graph(name: str, G: nx.Graph, scale: float = 1):
-    k_max, norm_sum_max, exp_intervals, best_score = get_hyperparameters(name, scale)
+def write_vars_from_graph(name: str, G: nx.Graph):
+    k_max, norm_sum_max, exp_intervals, best_score = get_hyperparameters(name)
     size = len(G.nodes)
     x = [G.nodes[i]["team"] for i in range(size)]
     vars = {f"x_{i}": x[i] for i in range(size)}
@@ -62,7 +60,6 @@ def write_vars_from_graph(name: str, G: nx.Graph, scale: float = 1):
         if x[i] > k:
             k = x[i]
     vars["k"] = k
-
     for i in range(size):
         for j in range(1, k_max + 1):
             vars[f"x_ind_{i}_{j}"] = 1 if x[i] == j else 0
@@ -88,7 +85,7 @@ def write_vars_from_graph(name: str, G: nx.Graph, scale: float = 1):
             f"norm_term_unsq_ind_{i}",
             f"norm_term_{i}",
             norm_term_unsq,
-            SQ_INTERVALS * scale,
+            SQ_INTERVALS,
             -0.5,
             1,
             lambda x: x**2,
@@ -99,7 +96,7 @@ def write_vars_from_graph(name: str, G: nx.Graph, scale: float = 1):
         "norm_sum_ind",
         "norm_sum_sqrt",
         norm_sum,
-        SQRT_INTERVALS * scale,
+        SQRT_INTERVALS,
         0,
         norm_sum_max,
         lambda x: math.sqrt(abs(max(0, x))),
@@ -135,10 +132,10 @@ def write_vars_from_graph(name: str, G: nx.Graph, scale: float = 1):
         f.write("\n".join([f"{name} {vars[name]}" for name in vars]) + "\n")
 
 
-def write_vars_from_output(name: str, scale: float = 1):
+def write_vars_from_output(name: str):
     G = read_input(f"inputs/{name}.in")
     G = read_output(G, f"outputs/{name}.out")
-    write_vars_from_graph(name, G, scale)
+    write_vars_from_graph(name, G)
 
 
 def write_weights_from_input(name: str):
@@ -154,20 +151,23 @@ def sync_outputs():
     for name in os.listdir("outputs"):
         if name.endswith(".out"):
             print(name)
-            cpp = read_input(f"inputs/{name[:-4]}.in")
-            with open(f"cpp-outputs/{name}", "r") as f:
-                teams = [int(team) for team in f.read().split()]
-            for i in range(len(teams)):
-                cpp.nodes[i]["team"] = teams[i]
-            output = read_output(
-                read_input(f"inputs/{name[:-4]}.in"), f"outputs/{name}"
-            )
-            if score(output) <= score(cpp):
-                teams = [output.nodes[i]["team"] for i in range(len(output.nodes))]
-            with open(f"cpp-outputs/{name}", "w") as f:
-                f.write("\n".join([str(team) for team in teams]) + "\n")
-            with open(f"outputs/{name}", "w") as f:
-                f.write(json.dumps(teams))
+            try:
+                cpp = read_input(f"inputs/{name[:-4]}.in")
+                with open(f"cpp-outputs/{name}", "r") as f:
+                    teams = [int(team) for team in f.read().split()]
+                for i in range(len(teams)):
+                    cpp.nodes[i]["team"] = teams[i]
+                output = read_output(
+                    read_input(f"inputs/{name[:-4]}.in"), f"outputs/{name}"
+                )
+                if score(output) <= score(cpp):
+                    teams = [output.nodes[i]["team"] for i in range(len(output.nodes))]
+                with open(f"cpp-outputs/{name}", "w") as f:
+                    f.write("\n".join([str(team) for team in teams]) + "\n")
+                with open(f"outputs/{name}", "w") as f:
+                    f.write(json.dumps(teams))
+            except Exception as e:
+                print(e)
 
 
 # name = "small43"

@@ -14,23 +14,21 @@
 
 using namespace std;
 
-string type = "large";
-const int nodes = 1000;
-const int input_offset = 2 * 260;
-const int steps = 100000;
+string type = "small";
+const int nodes = 100;
+const int input_offset = 0 * 260;
+const int steps = 10000000;
 
-const double static_k_max_threshold = 0.01;
-const double static_k_max_T_min = 1;
-const double static_k_max_T_max = 1;
-
-const double end_percent = 0.05;
+const double static_k_max_threshold = 0.2;
+const double static_k_max_T_min = 2;
+const double static_k_max_T_max = 200;
 
 const bool run_all = false;
 const bool try_to_break_ties = false;
 const int concurrency = 16 + 10;
 
-const double T_min = 10;
-const double T_max = 1000;
+const double T_min = 2;
+const double T_max = 2;
 
 mutex m;
 condition_variable cond;
@@ -131,7 +129,6 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
     time_t start_time = time(NULL);
     double best_score = 1000000000.0;
     double best_x[nodes];
-
     bool final_stretch = old_score / score_to_beat < 1 + static_k_max_threshold;
     double T = final_stretch ? static_k_max_T_max : T_max;
     double T_factor = -log(T_max / (final_stretch ? static_k_max_T_min : T_min));
@@ -140,9 +137,8 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
     uniform_int_distribution<mt19937::result_type> x_dist(0, nodes - 1);
     uniform_int_distribution<mt19937::result_type> k_dist(1, k_max);
     uniform_real_distribution<double> T_dist(0.0, 1.0);
-
     for (double step = 0; step < steps; step++) {
-        T = T_max * exp(T_factor * min(step / steps, 1 - end_percent));
+        T = T_max * exp(T_factor * step / steps);
         double delta = 0;
         int i = x_dist(rng);
 
@@ -175,7 +171,7 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
             s[new_x - 1].insert(i);
             x[i] = new_x;
 
-            if (score < best_score) {
+            if (score < score_to_beat) { // best_score) {
                 best_score = score;
                 for (int i = 0; i < nodes; i++) {
                     best_x[i] = x[i];
@@ -252,14 +248,16 @@ int main() {
     }
     sfp.close();
     for (int i = 1; i <= 260; i++) {
-        threads++;
-        thread(anneal_num, i, best_scores).detach();
-        if (threads >= concurrency) {
-            // unique_lock<std::mutex> lock{m};
-            // cond.wait(lock, []{
-            //     return threads < concurrency; }
-            // );
-        }
+        // if (i == 32) { // i == 185 || i == 204 || i == 77 || i == 117 || i == 6 || i == 223 || i == 215 || i == 25 || i == 134 || i == 134 || i == 162 || i == 197 || i == 23 || i == 147) {
+            threads++;
+            thread(anneal_num, i, best_scores).detach();
+            if (threads >= concurrency) {
+                // unique_lock<std::mutex> lock{m};
+                // cond.wait(lock, []{
+                //     return threads < concurrency; }
+                // );
+            }
+        // }
     }
     unique_lock<std::mutex> lock{m};
     cond.wait(lock, []{ return threads == 0; });

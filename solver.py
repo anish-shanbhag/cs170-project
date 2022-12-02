@@ -51,7 +51,7 @@ def solve(name: str):
     size = len(G.nodes)
 
     model = pl.LpProblem("CS 170 Solver", pl.LpMinimize)
-    solver = pl.GUROBI(Threads=16, warmStart=True)
+    solver = pl.GUROBI(Threads=8, warmStart=True)
 
     def sol_callback(model, where):
         get_var = lambda name: model.cbGetSolution(model.getVarByName(name))
@@ -165,7 +165,6 @@ def solve(name: str):
         model += norm_term_unsq <= actual_term + k_max * used_ind
         model += norm_term_unsq >= -k_max * (1 - used_ind)
         model += norm_term_unsq <= actual_term + k_max * (1 + used_ind)
-
         norm_terms[i - 1] = add_fn_approximation(
             model,
             f"norm_term_unsq_ind_{i}",
@@ -232,4 +231,4 @@ def solve(name: str):
     log("FINISHED SOLVING:", name)
 
 
-solve("medium128")
+solve("medium66")
