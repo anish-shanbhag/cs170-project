@@ -14,16 +14,18 @@
 
 using namespace std;
 
-string type = "large";
-const int nodes = 1000;
-const int input_offset = 2 * 260;
-const int steps = 20000000;
+string type = "small";
+const int nodes = 100;
+const int input_offset = 0 * 260;
+const int steps = 2000000000;
+const double static_k_max_threshold = 0.01;
+const double end_percent = 0.05;
 const bool run_all = false;
 const bool try_to_break_ties = false;
 const int concurrency = 16;
 
-const double T_min = 4.5;
-const double T_max = 99000;
+const double T_min = 50;
+const double T_max = 50;
 
 mutex m;
 condition_variable cond;
@@ -133,7 +135,7 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
     uniform_real_distribution<double> T_dist(0.0, 1.0);
 
     for (double step = 0; step < steps; step++) {
-        T = T_max * exp(T_factor * step / steps);
+        T = T_max * exp(T_factor * min(step / steps, 1 - end_percent));
         int i = x_dist(rng);
         double delta = 0;
 
@@ -177,12 +179,12 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
     }
 
     if (best_score < old_score - 0.0001) {
-        cout << "NEW BEST SCORE (down from " << old_score << "): ";
         ofstream out("cpp-outputs/" + type + to_string(num) + ".out");
         for (int i = 0; i < nodes; i++) {
             out << best_x[i] << endl;
         }
         out.close();
+        cout << "NEW BEST SCORE (down from " << old_score << "): ";
         cout << best_score << " for input " << type << num << " with k_max = " << k_max << " (" << (time(NULL) - start_time) << " sec)" << endl;
     } else {
         // Move the line above to below the if/else if you want to see skip output
@@ -194,7 +196,7 @@ void anneal_num(int num, double best_scores[]) {
     threads++;
     double score_to_beat = best_scores[input_offset + num - 1];
     int k_actual_max = max(2, (int) floor(2 * log(score_to_beat / 100.0)));
-    int k_min = max(2, k_actual_max - 5);
+    int k_min = max(2, k_actual_max - 10);
 
     int w[nodes][nodes] = {};
     int x[nodes] = {};
@@ -221,6 +223,10 @@ void anneal_num(int num, double best_scores[]) {
     if (!run_all && (old_score < score_to_beat || (abs(score_to_beat - old_score) < 0.001 && !try_to_break_ties))) {
         // cout << "Already have a 1st place: " << old_score << " for input " << type << num << " with k_max = " << k << " (1st place is " << score_to_beat << ")" << endl;
     } else {
+        if (old_score / score_to_beat < 1 + static_k_max_threshold) {
+            k_min = k;
+            k_actual_max = k;
+        }
         cout << "Our current best for " << type << num << " is " << old_score << " (need to beat " << score_to_beat << ")" << endl;
         for (int k_max = k_min; k_max <= k_actual_max; k_max++) {
             anneal(num, k_max, score_to_beat, old_score);
