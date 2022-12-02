@@ -20,8 +20,8 @@ const int input_offset = 2 * 260;
 const int steps = 100000;
 
 const double static_k_max_threshold = 0.01;
-const double static_k_max_T_min = 10;
-const double static_k_max_T_max = 100;
+const double static_k_max_T_min = 1;
+const double static_k_max_T_max = 1;
 
 const double end_percent = 0.05;
 
@@ -30,7 +30,7 @@ const bool try_to_break_ties = false;
 const int concurrency = 16 + 10;
 
 const double T_min = 10;
-const double T_max = 100;
+const double T_max = 1000;
 
 mutex m;
 condition_variable cond;
