@@ -17,15 +17,20 @@ using namespace std;
 string type = "small";
 const int nodes = 100;
 const int input_offset = 0 * 260;
-const int steps = 2000000000;
+const int steps = 20000000;
+
 const double static_k_max_threshold = 0.01;
+const double static_k_max_T_min = 5;
+const double static_k_max_T_max = 10;
+
 const double end_percent = 0.05;
+
 const bool run_all = false;
 const bool try_to_break_ties = false;
 const int concurrency = 16;
 
-const double T_min = 50;
-const double T_max = 50;
+const double T_min = 5;
+const double T_max = 6000;
 
 mutex m;
 condition_variable cond;
@@ -126,8 +131,10 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
     time_t start_time = time(NULL);
     double best_score = 1000000000.0;
     double best_x[nodes];
-    double T = T_max;
-    double T_factor = -log(T_max / T_min);
+
+    bool final_stretch = old_score / score_to_beat < 1 + static_k_max_threshold;
+    double T = final_stretch ? static_k_max_T_max : T_max;
+    double T_factor = -log(T_max / (final_stretch ? static_k_max_T_min : T_min));
     random_device dev;
     mt19937 rng(dev());
     uniform_int_distribution<mt19937::result_type> x_dist(0, nodes - 1);
