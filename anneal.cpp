@@ -3,7 +3,6 @@
 #include <iostream>
 #include <fstream>
 #include <unordered_set>
-#include <map>
 #include <random>
 #include <time.h>
 #include <string>
@@ -15,14 +14,14 @@
 
 using namespace std;
 
-string type = "small";
-const int nodes = 100;
-const int input_offset = 0 * 260;
-const int steps = 1000000;
+string type = "large";
+const int nodes = 1000;
+const int input_offset = 2 * 260;
+const int steps = 100000;
 
 const double static_k_max_threshold = 0.01;
-const double static_k_max_T_min = 900;
-const double static_k_max_T_max = 1;
+const double static_k_max_T_min = 10;
+const double static_k_max_T_max = 100;
 
 const double end_percent = 0.05;
 
@@ -30,8 +29,8 @@ const bool run_all = false;
 const bool try_to_break_ties = false;
 const int concurrency = 16 + 10;
 
-const double T_min = 900;
-const double T_max = 1;
+const double T_min = 10;
+const double T_max = 100;
 
 mutex m;
 condition_variable cond;
@@ -54,7 +53,7 @@ int get_k_from_output(int num) {
 void get_initial_state_from_output(
     int num,
     int k_max,
-    map<pair<int, int>, int> w,
+    int w[nodes][nodes],
     int x[nodes],
     int p[],
     unordered_set<int> s[],
@@ -70,10 +69,7 @@ void get_initial_state_from_output(
     ifstream fp("weights/" + type + to_string(num) + ".txt");
     for (int i = 0; i < nodes; i++) {
         for (int j = 0; j < nodes; j++) {
-            int weight;
-            fp >> weight;
-            w[make_pair(i, j)] = weight;
-            w[make_pair(j, i)] = weight;
+            fp >> w[i][j];
         }
     }
 
@@ -89,7 +85,7 @@ void get_initial_state_from_output(
     for (int i = 0; i < nodes; i++) {
         for (int j = i + 1; j < nodes; j++) {
             if (x[i] == x[j]) {
-                *score += w[make_pair(i, j)];
+                *score += w[i][j];
             }
         }
     }
@@ -109,7 +105,7 @@ void get_initial_state_from_output(
 }
 
 void anneal(int num, int k_max, double score_to_beat, double old_score) {
-    map<pair<int, int>, int> w;
+    int w[nodes][nodes];
     int x[nodes] = {};
     int p[k_max] = {};
     unordered_set<int> s[k_max];
@@ -147,11 +143,11 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
 
     for (double step = 0; step < steps; step++) {
         T = T_max * exp(T_factor * min(step / steps, 1 - end_percent));
-        int i = x_dist(rng);
         double delta = 0;
+        int i = x_dist(rng);
 
         for (int j : s[x[i] - 1]) {
-            delta -= w[make_pair(i, j)];
+            delta -= w[i][j];
         }
 
         int new_x = k_dist(rng);
@@ -160,7 +156,7 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
         }
 
         for (int j : s[new_x - 1]) {
-            delta += w[make_pair(i, j)];
+            delta += w[i][j];
         }
 
         double new_b_sum = b_sum - pow(b[x[i] - 1], 2) - pow(b[new_x - 1], 2) + pow(b[x[i] - 1] - 1.0 / nodes, 2) + pow(b[new_x - 1] + 1.0 / nodes, 2);
@@ -208,7 +204,7 @@ void anneal_num(int num, double best_scores[]) {
     int k_actual_max = max(2, (int) floor(2 * log(score_to_beat / 100.0)));
     int k_min = max(2, k_actual_max - 10);
 
-    map<pair<int, int>, int> w;
+    int w[nodes][nodes];
     int x[nodes] = {};
     int k = get_k_from_output(num);
     int p[k] = {};
