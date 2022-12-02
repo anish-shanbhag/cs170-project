@@ -39,7 +39,6 @@ def check_score(name: str) -> int:
 
 def write_vars_from_graph(name: str, G: nx.Graph):
     k_max, norm_sum_max, exp_intervals, best_score = get_hyperparameters(name)
-    k_max += 1
     size = len(G.nodes)
     x = [G.nodes[i]["team"] for i in range(size)]
     vars = {f"x_{i}": x[i] for i in range(size)}

@@ -1,3 +1,5 @@
+// g++ -o rideThatSlay anneal.cpp -O3 -lpthread
+
 #include <iostream>
 #include <fstream>
 #include <unordered_set>
@@ -12,20 +14,27 @@
 
 using namespace std;
 
-string type = "medium";
-const int nodes = 300;
-const int input_offset = 260;
-const long int steps = 10000000000;
+string type = "large";
+const int nodes = 1000;
+const int input_offset = 2 * 260;
+const int steps = 100000;
+
+const double static_k_max_threshold = 0.01;
+const double static_k_max_T_min = 1;
+const double static_k_max_T_max = 1;
+
+const double end_percent = 0.05;
+
 const bool run_all = false;
 const bool try_to_break_ties = false;
-const int concurrency = 16;
+const int concurrency = 16 + 10;
 
-const double T_min = 4.5;
-const double T_max = 33000;
+const double T_min = 10;
+const double T_max = 1000;
 
 mutex m;
 condition_variable cond;
-atomic<bool> finished;
+atomic<int> threads;
 
 int get_k_from_output(int num) {
     ifstream xfp("cpp-outputs/" + type + to_string(num) + ".out");
@@ -96,7 +105,7 @@ void get_initial_state_from_output(
 }
 
 void anneal(int num, int k_max, double score_to_beat, double old_score) {
-    int w[nodes][nodes] = {};
+    int w[nodes][nodes];
     int x[nodes] = {};
     int p[k_max] = {};
     unordered_set<int> s[k_max];
@@ -122,8 +131,10 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
     time_t start_time = time(NULL);
     double best_score = 1000000000.0;
     double best_x[nodes];
-    double T = T_max;
-    double T_factor = -log(T_max / T_min);
+
+    bool final_stretch = old_score / score_to_beat < 1 + static_k_max_threshold;
+    double T = final_stretch ? static_k_max_T_max : T_max;
+    double T_factor = -log(T_max / (final_stretch ? static_k_max_T_min : T_min));
     random_device dev;
     mt19937 rng(dev());
     uniform_int_distribution<mt19937::result_type> x_dist(0, nodes - 1);
@@ -131,9 +142,9 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
     uniform_real_distribution<double> T_dist(0.0, 1.0);
 
     for (double step = 0; step < steps; step++) {
-        T = T_max * exp(T_factor * step / steps);
-        int i = x_dist(rng);
+        T = T_max * exp(T_factor * min(step / steps, 1 - end_percent));
         double delta = 0;
+        int i = x_dist(rng);
 
         for (int j : s[x[i] - 1]) {
             delta -= w[i][j];
@@ -174,13 +185,13 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
         }
     }
 
-    if (best_score < old_score) {
-        cout << "NEW BEST SCORE (down from " << old_score << "): ";
+    if (best_score < old_score - 0.0001) {
         ofstream out("cpp-outputs/" + type + to_string(num) + ".out");
         for (int i = 0; i < nodes; i++) {
             out << best_x[i] << endl;
         }
         out.close();
+        cout << "NEW BEST SCORE (down from " << old_score << "): ";
         cout << best_score << " for input " << type << num << " with k_max = " << k_max << " (" << (time(NULL) - start_time) << " sec)" << endl;
     } else {
         // Move the line above to below the if/else if you want to see skip output
@@ -191,9 +202,9 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
 void anneal_num(int num, double best_scores[]) {
     double score_to_beat = best_scores[input_offset + num - 1];
     int k_actual_max = max(2, (int) floor(2 * log(score_to_beat / 100.0)));
-    int k_min = max(2, k_actual_max - 5);
+    int k_min = max(2, k_actual_max - 10);
 
-    int w[nodes][nodes] = {};
+    int w[nodes][nodes];
     int x[nodes] = {};
     int k = get_k_from_output(num);
     int p[k] = {};
@@ -216,42 +227,41 @@ void anneal_num(int num, double best_scores[]) {
     );
 
     if (!run_all && (old_score < score_to_beat || (abs(score_to_beat - old_score) < 0.001 && !try_to_break_ties))) {
-        cout << "Already have a 1st place: " << old_score << " for input " << type << num << " with k_max = " << k << " (1st place is " << score_to_beat << ")" << endl;
+        // cout << "Already have a 1st place: " << old_score << " for input " << type << num << " with k_max = " << k << " (1st place is " << score_to_beat << ")" << endl;
     } else {
+        if (old_score / score_to_beat < 1 + static_k_max_threshold) {
+            k_min = k;
+            k_actual_max = k;
+        }
         cout << "Our current best for " << type << num << " is " << old_score << " (need to beat " << score_to_beat << ")" << endl;
         for (int k_max = k_min; k_max <= k_actual_max; k_max++) {
             anneal(num, k_max, score_to_beat, old_score);
         }
+    cout << "Done with " << type << num << endl;
     }
-    finished = true;
+    threads--;
     cond.notify_all();
 }
 
 int main() {
+    cout << "Running with " << steps << " steps" << endl;
     ifstream sfp("scores.txt");
     double best_scores[260 * 3];
     for (int i = 0; i < 260 * 3; i++) {
         sfp >> best_scores[i];
     }
     sfp.close();
-
-    for (int i = 1; i <= 260 + concurrency; i++) {
-        if (i <= 260) {
-            thread(anneal_num, i, best_scores).detach();
-        }
-        if (i >= concurrency) {
-            unique_lock<std::mutex> lock{m};
-            cond.wait(lock, [&] {
-                if (!finished) {
-                    return false;
-                } else {
-                    finished = false;
-                    return true;
-                }
-            });
+    for (int i = 1; i <= 260; i++) {
+        threads++;
+        thread(anneal_num, i, best_scores).detach();
+        if (threads >= concurrency) {
+            // unique_lock<std::mutex> lock{m};
+            // cond.wait(lock, []{
+            //     return threads < concurrency; }
+            // );
         }
     }
+    unique_lock<std::mutex> lock{m};
+    cond.wait(lock, []{ return threads == 0; });
     return 0;
 }
-
-// g++ -o rideThatSlay anneal.cpp -O3 -lpthread
