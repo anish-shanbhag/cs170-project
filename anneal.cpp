@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <unordered_set>
+#include <map>
 #include <random>
 #include <time.h>
 #include <string>
@@ -17,20 +18,20 @@ using namespace std;
 string type = "small";
 const int nodes = 100;
 const int input_offset = 0 * 260;
-const int steps = 20000000;
+const int steps = 1000000;
 
 const double static_k_max_threshold = 0.01;
-const double static_k_max_T_min = 5;
-const double static_k_max_T_max = 10;
+const double static_k_max_T_min = 900;
+const double static_k_max_T_max = 1;
 
 const double end_percent = 0.05;
 
 const bool run_all = false;
 const bool try_to_break_ties = false;
-const int concurrency = 16;
+const int concurrency = 16 + 10;
 
-const double T_min = 5;
-const double T_max = 6000;
+const double T_min = 900;
+const double T_max = 1;
 
 mutex m;
 condition_variable cond;
@@ -53,7 +54,7 @@ int get_k_from_output(int num) {
 void get_initial_state_from_output(
     int num,
     int k_max,
-    int w[nodes][nodes],
+    map<pair<int, int>, int> w,
     int x[nodes],
     int p[],
     unordered_set<int> s[],
@@ -69,7 +70,10 @@ void get_initial_state_from_output(
     ifstream fp("weights/" + type + to_string(num) + ".txt");
     for (int i = 0; i < nodes; i++) {
         for (int j = 0; j < nodes; j++) {
-            fp >> w[i][j];
+            int weight;
+            fp >> weight;
+            w[make_pair(i, j)] = weight;
+            w[make_pair(j, i)] = weight;
         }
     }
 
@@ -85,7 +89,7 @@ void get_initial_state_from_output(
     for (int i = 0; i < nodes; i++) {
         for (int j = i + 1; j < nodes; j++) {
             if (x[i] == x[j]) {
-                *score += w[i][j];
+                *score += w[make_pair(i, j)];
             }
         }
     }
@@ -105,7 +109,7 @@ void get_initial_state_from_output(
 }
 
 void anneal(int num, int k_max, double score_to_beat, double old_score) {
-    int w[nodes][nodes] = {};
+    map<pair<int, int>, int> w;
     int x[nodes] = {};
     int p[k_max] = {};
     unordered_set<int> s[k_max];
@@ -147,7 +151,7 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
         double delta = 0;
 
         for (int j : s[x[i] - 1]) {
-            delta -= w[i][j];
+            delta -= w[make_pair(i, j)];
         }
 
         int new_x = k_dist(rng);
@@ -156,7 +160,7 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
         }
 
         for (int j : s[new_x - 1]) {
-            delta += w[i][j];
+            delta += w[make_pair(i, j)];
         }
 
         double new_b_sum = b_sum - pow(b[x[i] - 1], 2) - pow(b[new_x - 1], 2) + pow(b[x[i] - 1] - 1.0 / nodes, 2) + pow(b[new_x - 1] + 1.0 / nodes, 2);
@@ -200,12 +204,11 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
 }
 
 void anneal_num(int num, double best_scores[]) {
-    threads++;
     double score_to_beat = best_scores[input_offset + num - 1];
     int k_actual_max = max(2, (int) floor(2 * log(score_to_beat / 100.0)));
     int k_min = max(2, k_actual_max - 10);
 
-    int w[nodes][nodes] = {};
+    map<pair<int, int>, int> w;
     int x[nodes] = {};
     int k = get_k_from_output(num);
     int p[k] = {};
@@ -238,24 +241,28 @@ void anneal_num(int num, double best_scores[]) {
         for (int k_max = k_min; k_max <= k_actual_max; k_max++) {
             anneal(num, k_max, score_to_beat, old_score);
         }
+    cout << "Done with " << type << num << endl;
     }
     threads--;
     cond.notify_all();
 }
 
 int main() {
+    cout << "Running with " << steps << " steps" << endl;
     ifstream sfp("scores.txt");
     double best_scores[260 * 3];
     for (int i = 0; i < 260 * 3; i++) {
         sfp >> best_scores[i];
     }
     sfp.close();
-
     for (int i = 1; i <= 260; i++) {
+        threads++;
         thread(anneal_num, i, best_scores).detach();
         if (threads >= concurrency) {
-            unique_lock<std::mutex> lock{m};
-            cond.wait(lock, []{ return threads < concurrency; });
+            // unique_lock<std::mutex> lock{m};
+            // cond.wait(lock, []{
+            //     return threads < concurrency; }
+            // );
         }
     }
     unique_lock<std::mutex> lock{m};
