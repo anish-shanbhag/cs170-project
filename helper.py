@@ -9,12 +9,14 @@ from constants import EXP_INTERVAL_SCALE, SQ_INTERVALS, SQRT_INTERVALS
 from starter import read_input, read_output, score
 
 
-def get_hyperparameters(name: str):
+def get_hyperparameters(name: str, scale: float = 1):
     with open("scores.json") as f:
         scores = json.load(f)
         k_max = math.floor(2 * np.log(scores[name] / 100))
         norm_sum_max = (np.log(scores[name]) / 70) ** 2 + 0.01
-        exp_intervals = math.ceil(EXP_INTERVAL_SCALE * 70 * math.sqrt(norm_sum_max))
+        exp_intervals = math.ceil(
+            scale * EXP_INTERVAL_SCALE * 70 * math.sqrt(norm_sum_max)
+        )
         return k_max, norm_sum_max, exp_intervals, scores[name]
 
 
@@ -37,8 +39,8 @@ def check_score(name: str) -> int:
     return 1000000000
 
 
-def write_vars_from_graph(name: str, G: nx.Graph):
-    k_max, norm_sum_max, exp_intervals, best_score = get_hyperparameters(name)
+def write_vars_from_graph(name: str, G: nx.Graph, scale: float = 1):
+    k_max, norm_sum_max, exp_intervals, best_score = get_hyperparameters(name, scale)
     size = len(G.nodes)
     x = [G.nodes[i]["team"] for i in range(size)]
     vars = {f"x_{i}": x[i] for i in range(size)}
@@ -86,7 +88,7 @@ def write_vars_from_graph(name: str, G: nx.Graph):
             f"norm_term_unsq_ind_{i}",
             f"norm_term_{i}",
             norm_term_unsq,
-            SQ_INTERVALS,
+            SQ_INTERVALS * scale,
             -0.5,
             1,
             lambda x: x**2,
@@ -97,7 +99,7 @@ def write_vars_from_graph(name: str, G: nx.Graph):
         "norm_sum_ind",
         "norm_sum_sqrt",
         norm_sum,
-        SQRT_INTERVALS,
+        SQRT_INTERVALS * scale,
         0,
         norm_sum_max,
         lambda x: math.sqrt(abs(max(0, x))),
@@ -133,10 +135,10 @@ def write_vars_from_graph(name: str, G: nx.Graph):
         f.write("\n".join([f"{name} {vars[name]}" for name in vars]) + "\n")
 
 
-def write_vars_from_output(name: str):
+def write_vars_from_output(name: str, scale: float = 1):
     G = read_input(f"inputs/{name}.in")
     G = read_output(G, f"outputs/{name}.out")
-    write_vars_from_graph(name, G)
+    write_vars_from_graph(name, G, scale)
 
 
 def write_weights_from_input(name: str):

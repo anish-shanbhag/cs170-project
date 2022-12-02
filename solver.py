@@ -232,4 +232,4 @@ def solve(name: str):
     log("FINISHED SOLVING:", name)
 
 
-solve("small236")
+solve("medium128")
