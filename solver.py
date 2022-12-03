@@ -231,4 +231,4 @@ def solve(name: str):
     log("FINISHED SOLVING:", name)
 
 
-solve("medium66")
+solve("medium222")
