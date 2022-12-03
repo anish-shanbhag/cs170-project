@@ -185,4 +185,4 @@ def solve(name: str):
     log("FINISHED SOLVING:", name)
 
 
-solve("large61")
+solve("small14")

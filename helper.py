@@ -177,8 +177,6 @@ def mod():
     #             G.nodes[j]["team"] = temp
 
 
-mod()
-
 # name = "small43"
 # G = read_input(f"inputs/{name}.in")
 # G = read_output(G, f"outputs/{name}.out")
