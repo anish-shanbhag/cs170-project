@@ -12,7 +12,9 @@ from starter import read_input, read_output, score
 def get_hyperparameters(name: str):
     with open("scores.json") as f:
         scores = json.load(f)
-        k_max = math.floor(2 * np.log(scores[name] / 100))
+        G = read_output(read_input(f"inputs/{name}.in"), f"outputs/{name}.out")
+        output_k_max = max([G.nodes[i]["team"] for i in range(len(G.nodes))])
+        k_max = max(output_k_max, math.floor(2 * np.log(scores[name] / 100)))
         norm_sum_max = (np.log(scores[name]) / 70) ** 2 + 0.01
         exp_intervals = math.ceil(EXP_INTERVAL_SCALE * 70 * math.sqrt(norm_sum_max))
         return k_max, norm_sum_max, exp_intervals, scores[name]
@@ -136,6 +138,15 @@ def write_vars_from_output(name: str):
     G = read_input(f"inputs/{name}.in")
     G = read_output(G, f"outputs/{name}.out")
     write_vars_from_graph(name, G)
+
+
+def write_all_vars():
+    for size in ["small", "medium", "large"]:
+        for i in range(1, 261):
+            try:
+                write_vars_from_output(f"{size}{i}")
+            except:
+                print(f"ERROR: {size}{i}")
 
 
 def write_weights_from_input(name: str):
