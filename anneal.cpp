@@ -17,18 +17,18 @@ using namespace std;
 string type = "medium";
 const int nodes = 300;
 const int input_offset = 1 * 260;
-const int steps = 2000000000;
+const int steps = 20000000;
 
-const double static_k_max_threshold = 0.2;
+const double static_k_max_threshold = 2;
 const double static_k_max_T_min = 5;
-const double static_k_max_T_max = 80000;
+const double static_k_max_T_max = 500;
 
 const bool run_all = false;
 const bool try_to_break_ties = false;
-const int concurrency = 16 + 10;
+const int concurrency = 6;
 
 const double T_min = 5;
-const double T_max = 80000;
+const double T_max = 100;
 
 mutex m;
 condition_variable cond;
@@ -171,7 +171,7 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
             s[new_x - 1].insert(i);
             x[i] = new_x;
 
-            if (score < best_score - 0.0001) { // best_score) {
+            if (score < best_score - 0.000000001) { // best_score) {
                 best_score = score;
                 for (int i = 0; i < nodes; i++) {
                     best_x[i] = x[i];
@@ -181,7 +181,7 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
         }
     }
 
-    if (best_score < old_score - 0.0001) {
+    if (best_score < old_score - 0.000000001) {
         ofstream out("cpp-outputs/" + type + to_string(num) + ".out");
         for (int i = 0; i < nodes; i++) {
             out << best_x[i] << endl;
@@ -193,6 +193,7 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
         // Move the line above to below the if/else if you want to see skip output
         // cout << "Skipping score ";
     }
+    // cout << "Score: " << best_score << " for input " << type << num << " with k_max = " << k_max << " (" << (time(NULL) - start_time) << " sec)" << endl;
 }
 
 void anneal_num(int num, double best_scores[]) {
@@ -226,8 +227,8 @@ void anneal_num(int num, double best_scores[]) {
         // cout << "Already have a 1st place: " << old_score << " for input " << type << num << " with k_max = " << k << " (1st place is " << score_to_beat << ")" << endl;
     } else {
         if (old_score / score_to_beat < 1 + static_k_max_threshold) {
-            k_min = k;
-            k_actual_max = k;
+            k_min = k - 1;
+            k_actual_max = min(k_actual_max, k + 1);
         }
         cout << "Our current best for " << type << num << " is " << old_score << " (need to beat " << score_to_beat << ")" << endl;
         for (int k_max = k_min; k_max <= k_actual_max; k_max++) {
@@ -248,7 +249,7 @@ int main() {
     }
     sfp.close();
     for (int i = 1; i <= 260; i++) {
-        // if (i == 40 || i == 66 || i == 222) { // i == 185 || i == 204 || i == 77 || i == 117 || i == 6 || i == 223 || i == 215 || i == 25 || i == 134 || i == 134 || i == 162 || i == 197 || i == 23 || i == 147) {
+        // if (i == 117) { // i == 185 || i == 204 || i == 77 || i == 117 || i == 6 || i == 223 || i == 215 || i == 25 || i == 134 || i == 134 || i == 162 || i == 197 || i == 23 || i == 147) {
             threads++;
             thread(anneal_num, i, best_scores).detach();
             if (threads >= concurrency) {

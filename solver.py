@@ -1,44 +1,18 @@
 import math
 import os
-
+import json
 import networkx as nx
 import numpy as np
 import pulp as pl
 from gurobipy import GRB
 from termcolor import colored
 
-from constants import SQ_INTERVALS, SQRT_INTERVALS
-from helper import get_hyperparameters, is_new_best
+from helper import get_hyperparameters, is_new_best, write_vars_from_output
 from starter import read_input, score, write_output
 
 
 def log(*args):
     print(*[colored(arg, "blue") for arg in args])
-
-
-def add_fn_approximation(
-    model, ind_name, result_name, input_value, intervals, lb, rb, fn
-):
-    input_ind = [
-        pl.LpVariable(f"{ind_name}_{j}", None, None, pl.LpBinary)
-        for j in range(1, intervals + 2)
-    ]
-    model += pl.lpSum(input_ind) == 1
-    input_range = rb - lb
-    input_ind_sum = pl.lpSum(
-        input_ind[j] * (lb + input_range * j / intervals) for j in range(intervals + 1)
-    )
-
-    model += input_ind_sum - input_value <= input_range / intervals
-    model += input_value - input_ind_sum <= input_range / intervals
-
-    result = pl.LpVariable(result_name, None, None, pl.LpContinuous)
-    model += result == pl.lpSum(
-        input_ind[j] * fn(lb + input_range * j / intervals)
-        for j in range(intervals + 1)
-    )
-
-    return result
 
 
 def solve(name: str):
@@ -53,76 +27,77 @@ def solve(name: str):
     model = pl.LpProblem("CS 170 Solver", pl.LpMinimize)
     solver = pl.GUROBI(Threads=8, warmStart=True)
 
+    last_score = -1
+
     def sol_callback(model, where):
+        nonlocal last_score
         get_var = lambda name: model.cbGetSolution(model.getVarByName(name))
         if where == GRB.Callback.MIPSOL:
             for i in range(size):
-                team = int(get_var(f"x_{i}"))
-                G.nodes[i]["team"] = team
-            log(f"{name} CURRENT SCORE:", score(G), "from", score(G, True))
-            log("k =", get_var("k"))
-            # log("k_ind =", [get_var(f"k_ind_{i}") for i in range(1, k_max + 1)])
-            # log("t =", get_var("t"))
-            # log("k_inv =", get_var("k_inv"))
-            # log("k_inv_sq =", get_var("k_inv_sq"))
-            # for i in range(size // 30):
-            #     for j in range(i + 1, size):
-            #         if G.has_edge(i, j) and get_var(f"d_{i}_{j}") == 0:
-            #             log(
-            #                 f"d_{i}_{j} =",
-            #                 get_var(f"d_{i}_{j}"),
-            log("p =", [get_var(f"p_{i}") for i in range(1, k_max + 1)])
-            # log("used_ind =", [get_var(f"used_ind_{i}") for i in range(1, k_max + 1)])
-            # log(
-            #     "norm_term_unsq =",
-            #     [get_var(f"norm_term_unsq_{i}") for i in range(1, k_max + 1)],
-            # )
-            # log(
-            #     "norm_term =",
-            #     [get_var(f"norm_term_{i}") for i in range(1, k_max + 1)],
-            # )
-            # log("norm_sum_sqrt =", get_var("norm_sum_sqrt"))
-            # log("exp_input =", get_var("exp_input"))
-            # log(
-            #     "exp_input_ind =",
-            #     [get_var(f"exp_input_ind_{i}") for i in range(1, exp_intervals + 2)],
-            # )
+                for k in range(1, k_max + 1):
+                    if get_var(f"x_ind_{i}_{k}") == 1:
+                        G.nodes[i]["team"] = k
+                        break
+            new_score = score(G)
+            if new_score != last_score:
+                last_score = new_score
+                new_best = is_new_best(name, G)
+                msg = "NEW BEST" if new_best else "current score"
+                log(f"{name} {msg}:", score(G), "from", score(G, True))
+                log("k =", get_var("k"))
+                # log("k_ind =", [get_var(f"k_ind_{i}") for i in range(1, k_max + 1)])
+                # log("t =", get_var("t"))
+                # log("k_inv =", get_var("k_inv"))
+                # log("k_inv_sq =", get_var("k_inv_sq"))
+                # for i in range(size // 30):
+                #     for j in range(i + 1, size):
+                #         if G.has_edge(i, j) and get_var(f"d_{i}_{j}") == 0:
+                #             log(
+                #                 f"d_{i}_{j} =",
+                #                 get_var(f"d_{i}_{j}"),
+                log("p =", [get_var(f"p_{i}") for i in range(1, k_max + 1)])
+                # log("used_ind =", [get_var(f"used_ind_{i}") for i in range(1, k_max + 1)])
+                # log(
+                #     "norm_term_unsq =",
+                #     [get_var(f"norm_term_unsq_{i}") for i in range(1, k_max + 1)],
+                # )
+                # log(
+                #     "norm_term =",
+                #     [get_var(f"norm_term_{i}") for i in range(1, k_max + 1)],
+                # )
+                # log("norm_sum_sqrt =", get_var("norm_sum_sqrt"))
+                # log("exp_input =", get_var("exp_input"))
+                # log(
+                #     "exp_input_ind =",
+                #     [get_var(f"exp_input_ind_{i}") for i in range(1, exp_intervals + 2)],
+                # )
 
-            log("distribution =", get_var("distribution"))
-            if is_new_best(name, G):
-                write_output(G, f"outputs/{name}.out", True)
-                with open(f"solutions/{name}.mst", "w") as f:
-                    vars = model.getVars()
-                    sol = model.cbGetSolution(vars)
-                    for var, val in zip(vars, sol):
-                        f.write(f"{var.VarName} {val}\n")
-            else:
-                log("SKIPPING OUTPUT UPDATE")
+                log("distribution =", get_var("distribution"))
+                if new_best:
+                    write_output(G, f"outputs/{name}.out", True)
+                    write_vars_from_output(name)
 
-    x = [pl.LpVariable(f"x_{i}", 1, k_max, pl.LpInteger) for i in range(size)]
+    # x_ind: penguin i is assigned to team j
+    x_ind = [0] * size
+    for i in range(size):
+        x_ind[i] = [
+            pl.LpVariable(f"x_ind_{i}_{j}", None, None, pl.LpBinary)
+            for j in range(1, k_max + 1)
+        ]
+        model += pl.lpSum(x_ind[i]) == 1
+
     c = []
     for i in range(size):
         for j in range(i + 1, size):
             if G.has_edge(i, j):
-                weight_max = 1000
                 b = pl.LpVariable(f"b_{i}_{j}", None, None, pl.LpBinary)
-                d = pl.LpVariable(f"d_{i}_{j}", 0, k_max, pl.LpContinuous)
-                d1 = x[i] - x[j]
-                d2 = x[j] - x[i]
-                model += d >= d1
-                model += d >= d2
-                model += d <= d1 + 2 * k_max * b
-                model += d <= d2 + 2 * k_max * (1 - b)
-
-                # https://or.stackexchange.com/questions/1160/how-to-linearize-min-function-as-a-constraint
-                # https://math.stackexchange.com/questions/2446606/linear-programming-set-a-variable-the-max-between-two-another-variables
-                weight = G.edges[i, j]["weight"]
-                w = pl.LpVariable(f"w_{i}_{j}", 0, weight, pl.LpContinuous)
-                model += w >= weight - weight_max * d
-                c += [w]
+                for k in range(k_max):
+                    model += x_ind[i][k] + x_ind[j][k] - 1 <= b
+                c += [G.edges[i, j]["weight"] * b]
     k = pl.LpVariable("k", 1, k_max, pl.LpInteger)
-    for i in range(size):
-        model += k >= x[i]
+    for k_val in range(1, k_max + 1):
+        for i in range(size):
+            model += k >= k_val * x_ind[i][k_val - 1]
     k_ind = [
         pl.LpVariable(f"k_ind_{i}", None, None, pl.LpBinary)
         for i in range(1, k_max + 1)
@@ -133,16 +108,6 @@ def solve(name: str):
     model += t == pl.lpSum(
         k_ind[i] * math.floor(100 * np.e ** (0.5 * (i + 1))) for i in range(k_max)
     )
-
-    # x_ind: penguin i is assigned to team j
-    x_ind = [0] * size
-    for i in range(size):
-        x_ind[i] = [
-            pl.LpVariable(f"x_ind_{i}_{j}", None, None, pl.LpBinary)
-            for j in range(1, k_max + 1)
-        ]
-        model += pl.lpSum(x_ind[i]) == 1
-        model += pl.lpSum(x_ind[i][j] * (j + 1) for j in range(k_max)) == x[i]
 
     k_inv = pl.LpVariable("k_inv", None, None, pl.LpContinuous)
     model += k_inv == pl.lpSum(k_ind[i] * (1 / (i + 1)) for i in range(k_max))
@@ -165,70 +130,58 @@ def solve(name: str):
         model += norm_term_unsq <= actual_term + k_max * used_ind
         model += norm_term_unsq >= -k_max * (1 - used_ind)
         model += norm_term_unsq <= actual_term + k_max * (1 + used_ind)
-        norm_terms[i - 1] = add_fn_approximation(
-            model,
-            f"norm_term_unsq_ind_{i}",
-            f"norm_term_{i}",
-            norm_term_unsq,
-            SQ_INTERVALS,
-            -0.5,
-            1,
-            lambda x: x**2,
-        )
+        norm_terms[i - 1] = pl.LpVariable(f"norm_term_{i}", -0.5, 1, pl.LpContinuous)
 
-    norm_sum = pl.lpSum(norm_terms)
+    norm_sum = pl.LpVariable("norm_sum", 0, None, pl.LpContinuous)
+    model += norm_sum == pl.lpSum(norm_terms)
     model += norm_sum <= norm_sum_max
-    norm_sum_sqrt = add_fn_approximation(
-        model,
-        "norm_sum_ind",
-        "norm_sum_sqrt",
-        norm_sum,
-        SQRT_INTERVALS,
-        0,
-        norm_sum_max,
-        lambda x: math.sqrt(x),
-    )
+    norm_sum_sqrt = pl.LpVariable("norm_sum_sqrt", None, None, pl.LpContinuous)
 
-    exp_input = pl.LpVariable("exp_input", 0, 14, pl.LpContinuous)
+    exp_input = pl.LpVariable(
+        "exp_input", 0, 70 * math.sqrt(norm_sum_max), pl.LpContinuous
+    )
     model += exp_input == 70 * norm_sum_sqrt
-    distribution = add_fn_approximation(
-        model,
-        "exp_input_ind",
-        "distribution",
-        exp_input,
-        exp_intervals,
-        0,
-        70 * math.sqrt(norm_sum_max),
-        lambda x: np.e**x,
-    )
+    distribution = pl.LpVariable("distribution", None, None, pl.LpContinuous)
 
-    objective = pl.LpVariable("objective", 0, None, pl.LpContinuous)
-    model += objective == pl.lpSum(c) + t + distribution
-    model += objective
-
-    vars = {}
-    for variable in model.variables():
-        s = str(variable).split("_")
-        b = []
-        for part in s:
-            if not part.isdigit():
-                b.append(part)
-        s = "_".join(b)
-        if s not in vars:
-            vars[s] = 0
-        vars[s] += 1
-    print([v for v in vars.items() if v[1] > 5])
+    model += pl.lpSum(c) + t + distribution
 
     solver.buildSolverModel(model)
+
+    for i in range(1, k_max + 1):
+        unsq = model.solverModel.getVarByName(f"norm_term_unsq_{i}")
+        sq = model.solverModel.getVarByName(f"norm_term_{i}")
+        model.solverModel.addQConstr(sq >= unsq * unsq)
+
+        norm_sum = model.solverModel.getVarByName("norm_sum")
+        norm_sum_sqrt = model.solverModel.getVarByName("norm_sum_sqrt")
+        model.solverModel.addGenConstrPow(
+            norm_sum,
+            norm_sum_sqrt,
+            0.5,
+            "sqrt",
+            "FuncPieces=-1 FuncPieceError=0.001",
+        )
+
+        exp_input = model.solverModel.getVarByName("exp_input")
+        distribution = model.solverModel.getVarByName("distribution")
+        model.solverModel.addGenConstrExp(
+            exp_input,
+            distribution,
+            "FuncPieces=-1 FuncPieceError=0.1",
+        )
+
+        # model.solverModel.Params.FeasibilityTol = 1e-9
+
     if os.path.isfile(f"solutions/{name}.mst"):
         vars = {v.name: v for v in model.variables()}
         with open(f"solutions/{name}.mst", "r") as f:
             for line in f:
                 s = line.split()
-                vars[s[0]].setInitialValue(float(s[1]))
+                model.solverModel.getVarByName(s[0]).start = float(s[1])
 
-    solver.actualSolve(model, sol_callback)
+    model.solverModel.update()
+    solver.callSolver(model, sol_callback)
     log("FINISHED SOLVING:", name)
 
 
-solve("medium222")
+solve("large61")
