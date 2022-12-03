@@ -14,9 +14,9 @@
 
 using namespace std;
 
-string type = "medium";
-const int nodes = 300;
-const int input_offset = 1 * 260;
+string type = "large";
+const int nodes = 1000;
+const int input_offset = 2 * 260;
 const int steps = 20000000;
 
 const double static_k_max_threshold = 2;
