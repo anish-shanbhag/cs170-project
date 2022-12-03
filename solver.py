@@ -44,7 +44,8 @@ def solve(name: str):
                 new_best = is_new_best(name, G)
                 msg = "NEW BEST" if new_best else "current score"
                 log(f"{name} {msg}:", score(G), "from", score(G, True))
-                log("k =", get_var("k"))
+                # log("k =", get_var("k"))
+
                 # log("k_ind =", [get_var(f"k_ind_{i}") for i in range(1, k_max + 1)])
                 # log("t =", get_var("t"))
                 # log("k_inv =", get_var("k_inv"))
@@ -111,8 +112,6 @@ def solve(name: str):
 
     k_inv = pl.LpVariable("k_inv", None, None, pl.LpContinuous)
     model += k_inv == pl.lpSum(k_ind[i] * (1 / (i + 1)) for i in range(k_max))
-    k_inv_sq = pl.LpVariable("k_inv_sq", None, None, pl.LpContinuous)
-    model += k_inv_sq == pl.lpSum(k_ind[i] * (1 / (i + 1) ** 2) for i in range(k_max))
 
     norm_terms = [0] * k_max
     for i in range(1, k_max + 1):
@@ -173,11 +172,14 @@ def solve(name: str):
         # model.solverModel.Params.FeasibilityTol = 1e-9
 
     if os.path.isfile(f"solutions/{name}.mst"):
-        vars = {v.name: v for v in model.variables()}
         with open(f"solutions/{name}.mst", "r") as f:
             for line in f:
                 s = line.split()
-                model.solverModel.getVarByName(s[0]).start = float(s[1])
+                var = model.solverModel.getVarByName(s[0])
+                if var:
+                    var.start = float(s[1])
+                else:
+                    log("Variable not found:", s[0])
 
     model.solverModel.update()
     solver.callSolver(model, sol_callback)

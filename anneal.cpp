@@ -25,7 +25,7 @@ const double static_k_max_T_max = 500;
 
 const bool run_all = false;
 const bool try_to_break_ties = false;
-const int concurrency = 6;
+const int concurrency = 20;
 
 const double T_min = 5;
 const double T_max = 100;
@@ -182,11 +182,18 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
     }
 
     if (best_score < old_score - 0.000000001) {
-        ofstream out("cpp-outputs/" + type + to_string(num) + ".out");
+        ofstream cpp("cpp-outputs/" + type + to_string(num) + ".out");
         for (int i = 0; i < nodes; i++) {
-            out << best_x[i] << endl;
+            cpp << best_x[i] << endl;
         }
-        out.close();
+        cpp.close();
+        ofstream output("outputs/" + type + to_string(num) + ".out");
+        output << "[" << best_x[0];
+        for (int i = 1; i < nodes; i++) {
+            output << ", " << best_x[i];
+        }
+        output << "]" << endl;
+        output.close();
         cout << "NEW BEST SCORE (down from " << old_score << "): ";
         cout << best_score << " for input " << type << num << " with k_max = " << k_max << " (" << (time(NULL) - start_time) << " sec)" << endl;
     } else {
@@ -248,17 +255,19 @@ int main() {
         sfp >> best_scores[i];
     }
     sfp.close();
-    for (int i = 1; i <= 260; i++) {
-        // if (i == 117) { // i == 185 || i == 204 || i == 77 || i == 117 || i == 6 || i == 223 || i == 215 || i == 25 || i == 134 || i == 134 || i == 162 || i == 197 || i == 23 || i == 147) {
-            threads++;
-            thread(anneal_num, i, best_scores).detach();
-            if (threads >= concurrency) {
-                // unique_lock<std::mutex> lock{m};
-                // cond.wait(lock, []{
-                //     return threads < concurrency; }
-                // );
-            }
-        // }
+    while (true) {
+        for (int i = 1; i <= 260; i++) {
+            // if (i == 117) { // i == 185 || i == 204 || i == 77 || i == 117 || i == 6 || i == 223 || i == 215 || i == 25 || i == 134 || i == 134 || i == 162 || i == 197 || i == 23 || i == 147) {
+                threads++;
+                thread(anneal_num, i, best_scores).detach();
+                if (threads >= concurrency) {
+                    unique_lock<std::mutex> lock{m};
+                    cond.wait(lock, []{
+                        return threads < concurrency; 
+                    });
+                }
+            // }
+        }
     }
     unique_lock<std::mutex> lock{m};
     cond.wait(lock, []{ return threads == 0; });
