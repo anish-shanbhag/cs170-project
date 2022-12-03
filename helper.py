@@ -137,6 +137,48 @@ def sync_outputs():
                 print(e)
 
 
+def mod():
+    name = "large117"
+    G = read_output(read_input(f"inputs/{name}.in"), f"outputs/{name}.out")
+    print(score(G))
+    k = max([G.nodes[i]["team"] for i in range(len(G.nodes))])
+    p = [0] * k
+    old_score = score(G)
+    for i in range(len(G.nodes)):
+        print(i)
+        if G.nodes[i]["team"] == 3:
+            G.nodes[i]["team"] = 4
+            for j in range(len(G.nodes)):
+                if G.nodes[j]["team"] == 4:
+                    G.nodes[j]["team"] = 1
+                    if score(G) < old_score:
+                        print("FOUND:", i, j)
+                        return
+                    G.nodes[j]["team"] = 4
+            G.nodes[i]["team"] = 3
+    print(p)
+    for i, j in G.edges:
+        if G.nodes[i]["team"] == G.nodes[j]["team"]:
+            print(i, j, G.edges[i, j]["weight"])
+    # k = max([G.nodes[i]["team"] for i in range(len(G.nodes))])
+    # old_score = score(G)
+    # for i in range(len(G.nodes)):
+    #     print(i)
+    #     for j in range(i + 1, len(G.nodes)):
+    #         if G.nodes[i]["team"] != G.nodes[j]["team"]:
+    #             temp = G.nodes[i]["team"]
+    #             G.nodes[i]["team"] = G.nodes[j]["team"]
+    #             G.nodes[j]["team"] = temp
+    #             if score(G) < old_score:
+    #                 print(i, j)
+    #                 return
+    #             temp = G.nodes[i]["team"]
+    #             G.nodes[i]["team"] = G.nodes[j]["team"]
+    #             G.nodes[j]["team"] = temp
+
+
+mod()
+
 # name = "small43"
 # G = read_input(f"inputs/{name}.in")
 # G = read_output(G, f"outputs/{name}.out")

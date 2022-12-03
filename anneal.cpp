@@ -17,18 +17,18 @@ using namespace std;
 string type = "large";
 const int nodes = 1000;
 const int input_offset = 2 * 260;
-const int steps = 20000000;
+const int steps = 100000000;
 
-const double static_k_max_threshold = 2;
+const double static_k_max_threshold = 0.00000000000000002;
 const double static_k_max_T_min = 5;
-const double static_k_max_T_max = 500;
+const double static_k_max_T_max = 80000;
 
 const bool run_all = false;
 const bool try_to_break_ties = false;
-const int concurrency = 20;
+const int concurrency = 9;
 
 const double T_min = 5;
-const double T_max = 100;
+const double T_max = 80000;
 
 mutex m;
 condition_variable cond;
@@ -205,7 +205,7 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
 
 void anneal_num(int num, double best_scores[]) {
     double score_to_beat = best_scores[input_offset + num - 1];
-    int k_actual_max = max(2, (int) floor(2 * log(score_to_beat / 100.0)));
+    int k_actual_max = max(2, (int) floor(2 * log(score_to_beat / 100.0))) + 1;
     int k_min = max(2, k_actual_max - 10);
 
     int w[nodes][nodes];
@@ -233,15 +233,15 @@ void anneal_num(int num, double best_scores[]) {
     if (!run_all && (old_score < score_to_beat || (abs(score_to_beat - old_score) < 0.001 && !try_to_break_ties))) {
         // cout << "Already have a 1st place: " << old_score << " for input " << type << num << " with k_max = " << k << " (1st place is " << score_to_beat << ")" << endl;
     } else {
-        if (old_score / score_to_beat < 1 + static_k_max_threshold) {
-            k_min = k - 1;
-            k_actual_max = min(k_actual_max, k + 1);
-        }
+        // if (old_score / score_to_beat < 1 + static_k_max_threshold) {
+        //     k_min = k - 1;
+        //     k_actual_max = min(k_actual_max, k + 1);
+        // }
         cout << "Our current best for " << type << num << " is " << old_score << " (need to beat " << score_to_beat << ")" << endl;
         for (int k_max = k_min; k_max <= k_actual_max; k_max++) {
             anneal(num, k_max, score_to_beat, old_score);
         }
-    cout << "Done with " << type << num << endl;
+        cout << "Done with " << type << num << endl;
     }
     threads--;
     cond.notify_all();
@@ -257,7 +257,7 @@ int main() {
     sfp.close();
     while (true) {
         for (int i = 1; i <= 260; i++) {
-            // if (i == 117) { // i == 185 || i == 204 || i == 77 || i == 117 || i == 6 || i == 223 || i == 215 || i == 25 || i == 134 || i == 134 || i == 162 || i == 197 || i == 23 || i == 147) {
+            if (i == 215 || i == 117 || i == 134 || i == 147 || i == 223 || i == 185 || i == 119 || i == 40 || i == 159) { // i == 185 || i == 204 || i == 77 || i == 117 || i == 6 || i == 223 || i == 215 || i == 25 || i == 134 || i == 134 || i == 162 || i == 197 || i == 23 || i == 147) {
                 threads++;
                 thread(anneal_num, i, best_scores).detach();
                 if (threads >= concurrency) {
@@ -266,7 +266,7 @@ int main() {
                         return threads < concurrency; 
                     });
                 }
-            // }
+            }
         }
     }
     unique_lock<std::mutex> lock{m};
