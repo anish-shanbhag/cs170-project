@@ -72,10 +72,14 @@ def solve(name: str):
                 #     [get_var(f"exp_input_ind_{i}") for i in range(1, exp_intervals + 2)],
                 # )
 
-                log("distribution =", get_var("distribution"))
+                # TODO: uncomment
+                # log("distribution =", get_var("distribution"))
+
                 if new_best:
                     write_output(G, f"outputs/{name}.out", True)
                     write_vars_from_output(name)
+
+    k_max = 8
 
     # x_ind: penguin i is assigned to team j
     x_ind = [0] * size
@@ -90,83 +94,94 @@ def solve(name: str):
     for i in range(size):
         for j in range(i + 1, size):
             if G.has_edge(i, j):
-                b = pl.LpVariable(f"b_{i}_{j}", None, None, pl.LpBinary)
+                # TODO this is for no weights allowed
+                # b = pl.LpVariable(f"b_{i}_{j}", None, None, pl.LpBinary)
                 for k in range(k_max):
-                    model += x_ind[i][k] + x_ind[j][k] - 1 <= b
-                c += [G.edges[i, j]["weight"] * b]
-    k = pl.LpVariable("k", 1, k_max, pl.LpInteger)
-    for k_val in range(1, k_max + 1):
-        for i in range(size):
-            model += k >= k_val * x_ind[i][k_val - 1]
-    k_ind = [
-        pl.LpVariable(f"k_ind_{i}", None, None, pl.LpBinary)
-        for i in range(1, k_max + 1)
-    ]
-    model += pl.lpSum(k_ind) == 1
-    model += k == pl.lpSum(k_ind[i] * (i + 1) for i in range(k_max))
-    t = pl.LpVariable("t", None, 100 * np.e ** (0.5 * (k_max + 1)), pl.LpContinuous)
-    model += t == pl.lpSum(
-        k_ind[i] * math.floor(100 * np.e ** (0.5 * (i + 1))) for i in range(k_max)
-    )
+                    model += x_ind[i][k] + x_ind[j][k] <= 1  # - 1 <= b
+                # c += [G.edges[i, j]["weight"] * b]
 
-    k_inv = pl.LpVariable("k_inv", None, None, pl.LpContinuous)
-    model += k_inv == pl.lpSum(k_ind[i] * (1 / (i + 1)) for i in range(k_max))
+    # k = pl.LpVariable("k", 1, k_max, pl.LpInteger)
+    # for k_val in range(1, k_max + 1):
+    #     for i in range(size):
+    #         model += k >= k_val * x_ind[i][k_val - 1]
+    # k_ind = [
+    #     pl.LpVariable(f"k_ind_{i}", None, None, pl.LpBinary)
+    #     for i in range(1, k_max + 1)
+    # ]
+    # model += pl.lpSum(k_ind) == 1
+    # model += k == pl.lpSum(k_ind[i] * (i + 1) for i in range(k_max))
+    # t = pl.LpVariable("t", None, 100 * np.e ** (0.5 * (k_max + 1)), pl.LpContinuous)
+    # model += t == pl.lpSum(
+    #     k_ind[i] * math.floor(100 * np.e ** (0.5 * (i + 1))) for i in range(k_max)
+    # )
+
+    t = 100 * np.e ** (0.5 * (k_max + 1))
+
+    k_inv = 1 / k_max  # pl.LpVariable("k_inv", None, None, pl.LpContinuous)
+    # model += k_inv == pl.lpSum(k_ind[i] * (1 / (i + 1)) for i in range(k_max))
 
     norm_terms = [0] * k_max
     for i in range(1, k_max + 1):
         # p: number of penguins on team i
         p = pl.LpVariable(f"p_{i}", 0, size, pl.LpInteger)
         model += p == pl.lpSum(x_ind[j][i - 1] for j in range(size))
+        known_p = [125] * 8
+        model += p == known_p[i - 1]
+        # used_ind = pl.LpVariable(f"used_ind_{i}", None, None, pl.LpBinary)
+        # model += i <= k + (k_max + 1) * used_ind
+        # model += i >= k + 0.001 - (k_max + 1) * (1 - used_ind)
 
-        used_ind = pl.LpVariable(f"used_ind_{i}", None, None, pl.LpBinary)
-        model += i <= k + (k_max + 1) * used_ind
-        model += i >= k + 0.001 - (k_max + 1) * (1 - used_ind)
+        # norm_term_unsq = pl.LpVariable(f"norm_term_unsq_{i}", -0.5, 1, pl.LpContinuous)
+        # actual_term = 1 / size * p - k_inv
+        # model += norm_term_unsq == actual_term
 
-        norm_term_unsq = pl.LpVariable(f"norm_term_unsq_{i}", -0.5, 1, pl.LpContinuous)
-        actual_term = 1 / size * p - k_inv
-        model += norm_term_unsq >= actual_term - k_max * used_ind
-        model += norm_term_unsq <= actual_term + k_max * used_ind
-        model += norm_term_unsq >= -k_max * (1 - used_ind)
-        model += norm_term_unsq <= actual_term + k_max * (1 + used_ind)
-        norm_terms[i - 1] = pl.LpVariable(f"norm_term_{i}", -0.5, 1, pl.LpContinuous)
+        # model += norm_term_unsq >= actual_term - k_max * used_ind
+        # model += norm_term_unsq <= actual_term + k_max * used_ind
+        # model += norm_term_unsq >= -k_max * (1 - used_ind)
+        # model += norm_term_unsq <= actual_term + k_max * (1 + used_ind)
 
-    norm_sum = pl.LpVariable("norm_sum", 0, None, pl.LpContinuous)
-    model += norm_sum == pl.lpSum(norm_terms)
-    model += norm_sum <= norm_sum_max
-    norm_sum_sqrt = pl.LpVariable("norm_sum_sqrt", None, None, pl.LpContinuous)
+        # norm_terms[i - 1] = pl.LpVariable(f"norm_term_{i}", -0.5, 1, pl.LpContinuous)
 
-    exp_input = pl.LpVariable(
-        "exp_input", 0, 70 * math.sqrt(norm_sum_max), pl.LpContinuous
-    )
-    model += exp_input == 70 * norm_sum_sqrt
-    distribution = pl.LpVariable("distribution", None, None, pl.LpContinuous)
+    # norm_sum = pl.LpVariable("norm_sum", 0, None, pl.LpContinuous)
+    # model += norm_sum == pl.lpSum(norm_terms)
+    # model += norm_sum <= norm_sum_max
+    # norm_sum_sqrt = pl.LpVariable("norm_sum_sqrt", None, None, pl.LpContinuous)
 
-    model += pl.lpSum(c) + t + distribution
+    # exp_input = pl.LpVariable(
+    #     "exp_input", 0, 70 * math.sqrt(norm_sum_max), pl.LpContinuous
+    # )
+    # model += exp_input == 70 * norm_sum_sqrt
+    # distribution = pl.LpVariable("distribution", None, None, pl.LpContinuous)
+
+    # model += pl.lpSum(c) == 0
+
+    model += 0  # pl.lpSum(c)  # + t + distribution
 
     solver.buildSolverModel(model)
 
     for i in range(1, k_max + 1):
-        unsq = model.solverModel.getVarByName(f"norm_term_unsq_{i}")
-        sq = model.solverModel.getVarByName(f"norm_term_{i}")
-        model.solverModel.addQConstr(sq >= unsq * unsq)
+        pass
+        # unsq = model.solverModel.getVarByName(f"norm_term_unsq_{i}")
+        # sq = model.solverModel.getVarByName(f"norm_term_{i}")
+        # model.solverModel.addQConstr(sq >= unsq * unsq)
 
-        norm_sum = model.solverModel.getVarByName("norm_sum")
-        norm_sum_sqrt = model.solverModel.getVarByName("norm_sum_sqrt")
-        model.solverModel.addGenConstrPow(
-            norm_sum,
-            norm_sum_sqrt,
-            0.5,
-            "sqrt",
-            "FuncPieces=-1 FuncPieceError=0.001",
-        )
+        # norm_sum = model.solverModel.getVarByName("norm_sum")
+        # norm_sum_sqrt = model.solverModel.getVarByName("norm_sum_sqrt")
+        # model.solverModel.addGenConstrPow(
+        #     norm_sum,
+        #     norm_sum_sqrt,
+        #     0.5,
+        #     "sqrt",
+        #     "FuncPieces=-1 FuncPieceError=0.001",
+        # )
 
-        exp_input = model.solverModel.getVarByName("exp_input")
-        distribution = model.solverModel.getVarByName("distribution")
-        model.solverModel.addGenConstrExp(
-            exp_input,
-            distribution,
-            "FuncPieces=-1 FuncPieceError=0.1",
-        )
+        # exp_input = model.solverModel.getVarByName("exp_input")
+        # distribution = model.solverModel.getVarByName("distribution")
+        # model.solverModel.addGenConstrExp(
+        #     exp_input,
+        #     distribution,
+        #     "FuncPieces=-1 FuncPieceError=0.1",
+        # )
 
         # model.solverModel.Params.FeasibilityTol = 1e-9
 
@@ -185,4 +200,4 @@ def solve(name: str):
     log("FINISHED SOLVING:", name)
 
 
-solve("medium40")
+solve("large215")

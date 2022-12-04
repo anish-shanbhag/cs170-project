@@ -19,16 +19,16 @@ const int nodes = 1000;
 const int input_offset = 2 * 260;
 const int steps = 100000000;
 
-const double static_k_max_threshold = 0.00000000000000002;
-const double static_k_max_T_min = 5;
-const double static_k_max_T_max = 80000;
+const double static_k_max_threshold = 20000;
+const double static_k_max_T_min = 0.005;
+const double static_k_max_T_max = 500;
 
 const bool run_all = false;
 const bool try_to_break_ties = false;
-const int concurrency = 9;
+const int concurrency = 14;
 
-const double T_min = 5;
-const double T_max = 80000;
+const double T_min = 5000;
+const double T_max = 8000000;
 
 mutex m;
 condition_variable cond;
@@ -71,9 +71,14 @@ void get_initial_state_from_output(
         }
     }
 
+    // random_device dev;
+    // mt19937 rng(dev());
+    // uniform_real_distribution<double> T_dist(0.0, 1.0);
+
     ifstream xfp("cpp-outputs/" + type + to_string(num) + ".out");
     for (int i = 0; i < nodes; i++) {
         xfp >> x[i];
+        // x[i] = (int) (T_dist(rng) * k_max + 1); // (i % k_max) + 1;
         x[i] = min(x[i], k_max);
         p[x[i] - 1]++;
         s[x[i] - 1].insert(i);
@@ -146,6 +151,20 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
             delta -= w[i][j];
         }
 
+        // int o = x_dist(rng);
+        // while (x[o] == x[i]) {
+        //     o = x_dist(rng);
+        // }
+        // for (int j : s[x[o] - 1]) {
+        //     delta -= w[o][j];
+        // }
+        // for (int j : s[x[i] - 1]) {
+        //     delta += w[o][j];
+        // }
+        // for (int j : s[x[o] - 1]) {
+        //     delta += w[i][j];
+        // }
+
         int new_x = k_dist(rng);
         while (new_x == x[i]) {
             new_x = k_dist(rng);
@@ -161,14 +180,25 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
 
         if (delta <= 0 || exp(-delta / T) > T_dist(rng)) {
             score += delta;
+
             b_sum = new_b_sum;
             d = new_d;
             p[x[i] - 1]--;
             p[new_x - 1]++;
             b[x[i] - 1] -= 1.0 / nodes;
             b[new_x - 1] += 1.0 / nodes;
+
             s[x[i] - 1].erase(i);
+
+            // s[x[o] - 1].insert(i);
+            // s[x[o] - 1].erase(o);
+            // s[x[i] - 1].insert(o);
+
             s[new_x - 1].insert(i);
+
+            // int temp = x[i];
+            // x[i] = x[o];
+            // x[o] = temp;
             x[i] = new_x;
 
             if (score < best_score - 0.000000001) { // best_score) {
@@ -195,18 +225,18 @@ void anneal(int num, int k_max, double score_to_beat, double old_score) {
         output << "]" << endl;
         output.close();
         cout << "NEW BEST SCORE (down from " << old_score << "): ";
-        cout << best_score << " for input " << type << num << " with k_max = " << k_max << " (" << (time(NULL) - start_time) << " sec)" << endl;
+        // cout << best_score << " for input " << type << num << " with k_max = " << k_max << " (" << (time(NULL) - start_time) << " sec)" << endl;
     } else {
         // Move the line above to below the if/else if you want to see skip output
-        // cout << "Skipping score ";
+        cout << "Skipping score ";
     }
-    // cout << "Score: " << best_score << " for input " << type << num << " with k_max = " << k_max << " (" << (time(NULL) - start_time) << " sec)" << endl;
+    cout << best_score << " for input " << type << num << " with k_max = " << k_max << " (" << (time(NULL) - start_time) << " sec)" << endl;
 }
 
 void anneal_num(int num, double best_scores[]) {
     double score_to_beat = best_scores[input_offset + num - 1];
     int k_actual_max = max(2, (int) floor(2 * log(score_to_beat / 100.0))) + 1;
-    int k_min = max(2, k_actual_max - 10);
+    int k_min = max(2, k_actual_max - 100);
 
     int w[nodes][nodes];
     int x[nodes] = {};
@@ -230,13 +260,20 @@ void anneal_num(int num, double best_scores[]) {
         &old_score
     );
 
+    // if (num == 40) {
+    //     old_score = 77302.6;
+    // }
+    // else if (num == 107) {
+    //     old_score = 83594.5;
+    // }
+
     if (!run_all && (old_score < score_to_beat || (abs(score_to_beat - old_score) < 0.001 && !try_to_break_ties))) {
         // cout << "Already have a 1st place: " << old_score << " for input " << type << num << " with k_max = " << k << " (1st place is " << score_to_beat << ")" << endl;
     } else {
-        // if (old_score / score_to_beat < 1 + static_k_max_threshold) {
-        //     k_min = k - 1;
-        //     k_actual_max = min(k_actual_max, k + 1);
-        // }
+        if (true) { // old_score / score_to_beat < 1 + static_k_max_threshold) {
+            k_min = max(2, k - 2);
+            k_actual_max = min(k_actual_max, k + 1);
+        }
         cout << "Our current best for " << type << num << " is " << old_score << " (need to beat " << score_to_beat << ")" << endl;
         for (int k_max = k_min; k_max <= k_actual_max; k_max++) {
             anneal(num, k_max, score_to_beat, old_score);
@@ -257,7 +294,7 @@ int main() {
     sfp.close();
     while (true) {
         for (int i = 1; i <= 260; i++) {
-            if (i == 215 || i == 117 || i == 134 || i == 147 || i == 223 || i == 185 || i == 119 || i == 40 || i == 159) { // i == 185 || i == 204 || i == 77 || i == 117 || i == 6 || i == 223 || i == 215 || i == 25 || i == 134 || i == 134 || i == 162 || i == 197 || i == 23 || i == 147) {
+            // if (i == 107 || i == 40) { // 108 || i == 156 || i == 114) { // || i == 117 || i == 134 || i == 147 || i == 223 || i == 185 || i == 119 || i == 40 || i == 159) { // i == 185 || i == 204 || i == 77 || i == 117 || i == 6 || i == 223 || i == 215 || i == 25 || i == 134 || i == 134 || i == 162 || i == 197 || i == 23 || i == 147) {
                 threads++;
                 thread(anneal_num, i, best_scores).detach();
                 if (threads >= concurrency) {
@@ -266,7 +303,7 @@ int main() {
                         return threads < concurrency; 
                     });
                 }
-            }
+            // }
         }
     }
     unique_lock<std::mutex> lock{m};

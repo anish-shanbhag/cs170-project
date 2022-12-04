@@ -5,8 +5,8 @@ import os
 import networkx as nx
 import numpy as np
 
-from constants import EXP_INTERVAL_SCALE, SQ_INTERVALS, SQRT_INTERVALS
-from starter import read_input, read_output, score
+from constants import EXP_INTERVAL_SCALE
+from starter import read_input, read_output, score, visualize
 
 
 def get_hyperparameters(name: str):
@@ -138,28 +138,36 @@ def sync_outputs():
 
 
 def mod():
-    name = "large117"
+    name = "medium107"
     G = read_output(read_input(f"inputs/{name}.in"), f"outputs/{name}.out")
     print(score(G))
-    k = max([G.nodes[i]["team"] for i in range(len(G.nodes))])
-    p = [0] * k
-    old_score = score(G)
+    # G.nodes[0]["team"] = 8
+    # 285, 290, etc.
+    p = [0] * 20
     for i in range(len(G.nodes)):
-        print(i)
-        if G.nodes[i]["team"] == 3:
-            G.nodes[i]["team"] = 4
-            for j in range(len(G.nodes)):
-                if G.nodes[j]["team"] == 4:
-                    G.nodes[j]["team"] = 1
-                    if score(G) < old_score:
-                        print("FOUND:", i, j)
-                        return
-                    G.nodes[j]["team"] = 4
-            G.nodes[i]["team"] = 3
+        p[G.nodes[i]["team"] - 1] += 1
     print(p)
     for i, j in G.edges:
         if G.nodes[i]["team"] == G.nodes[j]["team"]:
             print(i, j, G.edges[i, j]["weight"])
+    visualize(G)
+
+    # k = max([G.nodes[i]["team"] for i in range(len(G.nodes))])
+    # p = [0] * k
+    # old_score = score(G)
+    # for i in range(len(G.nodes)):
+    #     print(i)
+    #     if G.nodes[i]["team"] == 3:
+    #         G.nodes[i]["team"] = 4
+    #         for j in range(len(G.nodes)):
+    #             if G.nodes[j]["team"] == 4:
+    #                 G.nodes[j]["team"] = 1
+    #                 if score(G) < old_score:
+    #                     print("FOUND:", i, j)
+    #                     return
+    #                 G.nodes[j]["team"] = 4
+    #         G.nodes[i]["team"] = 3
+
     # k = max([G.nodes[i]["team"] for i in range(len(G.nodes))])
     # old_score = score(G)
     # for i in range(len(G.nodes)):
@@ -176,6 +184,8 @@ def mod():
     #             G.nodes[i]["team"] = G.nodes[j]["team"]
     #             G.nodes[j]["team"] = temp
 
+
+# mod()
 
 # name = "small43"
 # G = read_input(f"inputs/{name}.in")
