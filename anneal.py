@@ -10,8 +10,7 @@ from starter import read_input, score, write_output
 
 
 def log(*args):
-    print(*[col
-    ored(arg, "blue") for arg in args])
+    print(*[colored(arg, "blue") for arg in args])
 
 
 @dataclass

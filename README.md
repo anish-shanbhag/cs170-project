@@ -1,11 +1,13 @@
-# Fall 2022 CS170 Project Skeleton
-This repository contains utility functions which might be helpful for solving the project.
+# Fall 2022 CS170 Project
 
-## Requirements
-`python >= 3.6` is needed for `starter.py`, which contains a handful of utility functions, to run properly; it was, nevertheless, developed in python 3.9.  
-Jupyter Notebook is required should you prefer using `main.ipynb`.
+## How To Run the C++ Simulated Annealing Algorithm
 
-## Licence
-Copyright 2022, The Regents of the University of California and UC Berkeley CS170 Staff  
-All rights reserved.  
-This content is protected and may not be shared, uploaded, or distributed without prior permission. 
+1. Clone the repository
+2. Run `g++ -o rideThatSlay anneal.cpp -O3 -lpthread` to compile the simulated annealing C++ program
+3. Edit the `type`, `nodes`, and `input_offset` variables to the desired values
+4. Run the program with `./rideThatSlay`
+
+## How to Run the Python MIP Algorithm
+
+1. Edit the call to `solve` in `solver.py` to the desired values
+2. Run `python3 solver.py`
