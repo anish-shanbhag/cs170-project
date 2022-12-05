@@ -24,7 +24,7 @@ def solve(name: str):
     size = len(G.nodes)
 
     model = pl.LpProblem("CS 170 Solver", pl.LpMinimize)
-    solver = pl.GUROBI(Threads=8, warmStart=True)
+    solver = pl.GUROBI(Threads=4, warmStart=True)
 
     last_score = -1
 
@@ -185,4 +185,4 @@ def solve(name: str):
     log("FINISHED SOLVING:", name)
 
 
-solve("medium40")
+solve("medium156")
